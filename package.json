@@ -5,7 +5,7 @@
   "type": "module",
   "scripts": {
     "dev": "vite",
-    "build": "tsc -b && vite build",
+    "build": "tsc -b && vite build && xcopy netlify dist\\netlify /E /I /Y",
     "lint": "eslint .",
     "preview": "vite preview"
   },

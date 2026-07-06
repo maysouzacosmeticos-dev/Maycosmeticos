@@ -12,6 +12,7 @@ interface CartItem {
 export default function Storefront() {
   const [cart, setCart] = useState<CartItem[]>([]);
   const [isCartOpen, setIsCartOpen] = useState(false);
+  const [isCheckoutLoading, setIsCheckoutLoading] = useState(false);
   const [storeProducts, setStoreProducts] = useState<Product[]>(localProducts);
   const [loading, setLoading] = useState(true);
   const whatsappNumber = "5575988071066";
@@ -64,7 +65,59 @@ export default function Storefront() {
       }
       return [...prev, { product, quantity: 1 }];
     });
-    setIsCartOpen(true);
+    setIsCartOpen(false);
+  };
+
+  const handleInfinitePayCheckout = async () => {
+    if (cart.length === 0) return;
+    setIsCheckoutLoading(true);
+
+    try {
+      // Formatar itens para a InfinitePay (preço em centavos)
+      const items = cart.map(item => ({
+        name: item.product.name,
+        price: Math.round(item.product.price * 100),
+        quantity: item.quantity
+      }));
+
+      const payload = {
+        handle: "jroberto_cerqueira",
+        redirect_url: window.location.origin,
+        items: items
+      };
+
+      const response = await fetch("/.netlify/functions/create-payment", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json"
+        },
+        body: JSON.stringify(payload)
+      });
+
+      if (!response.ok) {
+        throw new Error("Erro ao gerar link de pagamento.");
+      }
+
+      const data = await response.json();
+      
+      // A API retorna o link gerado, geralmente no campo link_url ou url
+      const paymentUrl = data.link_url || data.url;
+      
+      if (paymentUrl) {
+        // Limpar carrinho e redirecionar
+        setCart([]);
+        setIsCartOpen(false);
+        window.location.href = paymentUrl;
+      } else {
+        throw new Error("Link não encontrado na resposta.");
+      }
+
+    } catch (error) {
+      console.error(error);
+      alert("Houve um problema ao gerar o link de pagamento. Tente novamente mais tarde.");
+    } finally {
+      setIsCheckoutLoading(false);
+    }
   };
 
   const updateQuantity = (productId: string, delta: number) => {
@@ -201,9 +254,22 @@ export default function Storefront() {
                   <span>Total:</span>
                   <span>R$ {cartTotal.toFixed(2)}</span>
                 </div>
-                <button className="checkout-btn" onClick={handleCheckout}>
-                  Pedir pelo WhatsApp
-                </button>
+                <div className="cart-footer-buttons">
+                  <button
+                    onClick={handleInfinitePayCheckout}
+                    disabled={isCheckoutLoading}
+                    className="checkout-btn-infinitepay"
+                  >
+                    {isCheckoutLoading ? (
+                      <span className="spinner-small"></span>
+                    ) : (
+                      <>💳 Pagar Agora (Cartão/Pix)</>
+                    )}
+                  </button>
+                  <button className="checkout-btn" onClick={handleCheckout}>
+                    Enviar Pedido por WhatsApp
+                  </button>
+                </div>
               </div>
             )}
           </div>
