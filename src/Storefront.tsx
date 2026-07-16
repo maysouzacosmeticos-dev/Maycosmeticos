@@ -1,8 +1,11 @@
 import { useState, useEffect } from 'react';
-import { collection, getDocs, doc, setDoc, increment } from 'firebase/firestore';
+import { collection, getDocs, doc, setDoc, increment, getDoc, addDoc, query, where, updateDoc } from 'firebase/firestore';
+import { generatePixPayload } from './utils/generatePix';
 import { db } from './firebase';
 import type { Product } from './data/products';
 import { products as localProducts } from './data/products';
+import { QRCodeSVG } from 'qrcode.react';
+import { BottomNav } from './components/BottomNav';
 
 interface CartItem {
   product: Product;
@@ -15,6 +18,11 @@ export default function Storefront() {
   const [isCheckoutLoading, setIsCheckoutLoading] = useState(false);
   const [storeProducts, setStoreProducts] = useState<Product[]>(localProducts);
   const [loading, setLoading] = useState(true);
+  const [pixKey, setPixKey] = useState('');
+  const [pixPayload, setPixPayload] = useState('');
+  const [checkoutMode, setCheckoutMode] = useState<'cart' | 'customer' | 'pix' | 'cartao'>('cart');
+  const [customerInfo, setCustomerInfo] = useState({ name: '', phone: '', address: '' });
+  const [selectedPaymentMethod, setSelectedPaymentMethod] = useState<'pix' | 'cartao' | 'whatsapp' | null>(null);
   const whatsappNumber = "5575988071066";
 
   useEffect(() => {
@@ -37,6 +45,13 @@ export default function Storefront() {
       }
     };
 
+    const fetchSettings = async () => {
+      try {
+        const docSnap = await getDoc(doc(db, "settings", "store"));
+        if (docSnap.exists()) setPixKey(docSnap.data().pixKey || '');
+      } catch(e) {}
+    };
+
     // 2. Track Visit
     const trackVisit = async () => {
       const hasVisited = localStorage.getItem('may_cosmeticos_visited');
@@ -52,13 +67,22 @@ export default function Storefront() {
     };
 
     fetchProducts();
+    fetchSettings();
     trackVisit();
   }, []);
 
   const addToCart = (product: Product) => {
+    if (product.stock !== undefined && product.stock <= 0) {
+      alert("Este produto está esgotado no momento.");
+      return;
+    }
     setCart((prev) => {
       const existing = prev.find((item) => item.product.id === product.id);
       if (existing) {
+        if (product.stock !== undefined && existing.quantity >= product.stock) {
+          alert(`Temos apenas ${product.stock} unidades em estoque.`);
+          return prev;
+        }
         return prev.map((item) =>
           item.product.id === product.id ? { ...item, quantity: item.quantity + 1 } : item
         );
@@ -68,56 +92,119 @@ export default function Storefront() {
     setIsCartOpen(false);
   };
 
-  const handleInfinitePayCheckout = async () => {
-    if (cart.length === 0) return;
-    setIsCheckoutLoading(true);
+  const handleCustomerSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!customerInfo.name || !customerInfo.phone) {
+      alert("Por favor, preencha pelo menos nome e telefone.");
+      return;
+    }
 
+    setIsCheckoutLoading(true);
     try {
-      // Formatar itens para a InfinitePay (preço em centavos)
+      // 1. Atualizar ou Criar Cliente no CRM
+      const customersRef = collection(db, "customers");
+      const q = query(customersRef, where("name", "==", customerInfo.name.trim()));
+      const snap = await getDocs(q);
+      
+      let customerId = "";
+      if (!snap.empty) {
+        customerId = snap.docs[0].id;
+        await updateDoc(doc(db, "customers", customerId), {
+          phone: customerInfo.phone || "",
+          address: customerInfo.address || ""
+        });
+      } else {
+        const newCustomer = await addDoc(customersRef, {
+          name: customerInfo.name.trim() || "Cliente Sem Nome",
+          phone: customerInfo.phone || "",
+          address: customerInfo.address || "",
+          totalGasto: 0,
+          totalDivida: 0
+        });
+        customerId = newCustomer.id;
+      }
+
+      // 2. Registrar o Pedido Pendente (sem baixar estoque)
+      const cartTotalCalc = cart.reduce((total, item) => total + (item.product.price || 0) * item.quantity, 0);
+      await addDoc(collection(db, "sales"), {
+        date: new Date().toISOString(),
+        items: cart.map(item => ({
+          id: item.product.id || "sem-id",
+          name: item.product.name || "Produto sem nome",
+          price: item.product.price || 0,
+          quantity: item.quantity || 1
+        })),
+        total: cartTotalCalc,
+        method: selectedPaymentMethod === 'cartao' ? 'InfinitePay' : (selectedPaymentMethod === 'pix' ? 'Pix' : 'WhatsApp'),
+        source: 'Online',
+        status: 'pendente',
+        customerName: customerInfo.name.trim() || "Cliente Sem Nome",
+        customerId: customerId,
+        customerPhone: customerInfo.phone || "",
+        customerAddress: customerInfo.address || "",
+        amountPaid: 0
+      });
+
+      // 3. Redirecionar para o passo final
+      if (selectedPaymentMethod === 'cartao') {
+        await executeInfinitePayCheckout();
+      } else if (selectedPaymentMethod === 'pix') {
+        setCheckoutMode('pix');
+        setIsCheckoutLoading(false);
+      } else {
+        handleWhatsAppOrder(false, true); // true = bypass customer check since we just saved it
+      }
+    } catch (e) {
+      console.error("Erro ao registrar pedido:", e);
+      alert("Erro ao processar pedido. Tente novamente.");
+      setIsCheckoutLoading(false);
+    }
+  };
+
+  const executeInfinitePayCheckout = async () => {
+    try {
       const items = cart.map(item => ({
-        name: item.product.name,
+        id: item.product.id.toString(),
+        description: item.product.name,
         price: Math.round(item.product.price * 100),
         quantity: item.quantity
       }));
 
       const payload = {
-        handle: "jroberto_cerqueira",
+        handle: "maycosmeticos2026",
         redirect_url: window.location.origin,
+        order_nsu: Date.now().toString(),
         items: items
       };
 
       const response = await fetch("/.netlify/functions/create-payment", {
         method: "POST",
-        headers: {
-          "Content-Type": "application/json"
-        },
+        headers: { "Content-Type": "application/json" },
         body: JSON.stringify(payload)
       });
+      const data = await response.json();
 
       if (!response.ok) {
-        throw new Error("Erro ao gerar link de pagamento.");
+        alert(`Erro da InfinitePay: ${data.message || JSON.stringify(data) || "Erro."}`);
+        setIsCheckoutLoading(false);
+        return;
       }
-
-      const data = await response.json();
       
-      // A API retorna o link gerado, geralmente no campo link_url ou url
       const paymentUrl = data.link_url || data.url;
-      
       if (paymentUrl) {
-        // Limpar carrinho e redirecionar
         setCart([]);
         setIsCartOpen(false);
         window.location.href = paymentUrl;
-      } else {
-        throw new Error("Link não encontrado na resposta.");
       }
-
-    } catch (error) {
-      console.error(error);
-      alert("Houve um problema ao gerar o link de pagamento. Tente novamente mais tarde.");
-    } finally {
+    } catch (error: any) {
+      alert(`Houve um problema: ${error.message}`);
       setIsCheckoutLoading(false);
     }
+  };
+
+  const startCheckout = (method: 'pix' | 'cartao' | 'whatsapp') => {
+    setSelectedPaymentMethod(method);
+    setCheckoutMode('customer');
   };
 
   const updateQuantity = (productId: string, delta: number) => {
@@ -139,17 +226,51 @@ export default function Storefront() {
   const cartTotal = cart.reduce((total, item) => total + item.product.price * item.quantity, 0);
   const cartItemCount = cart.reduce((count, item) => count + item.quantity, 0);
 
-  const handleCheckout = () => {
+  useEffect(() => {
+    if (checkoutMode === 'pix' && pixKey && cartTotal > 0) {
+      try {
+        const payload = generatePixPayload(pixKey, cartTotal, 'MayCosmeticos', 'Brasil');
+        setPixPayload(payload);
+      } catch (e) {
+        console.error("Erro ao gerar Pix", e);
+        setPixPayload('');
+      }
+    } else {
+      setPixPayload('');
+    }
+  }, [checkoutMode, cartTotal, pixKey]);
+
+  const handleWhatsAppOrder = async (paidWithPix: boolean = false, skipCustomer: boolean = false) => {
     if (cart.length === 0) return;
+    
+    // Se não passou pelo CRM ainda, inicia o checkout pedindo os dados
+    if (!skipCustomer && checkoutMode !== 'pix') {
+      startCheckout('whatsapp');
+      return;
+    }
+    
+    // Se chegou aqui via Pix, atualiza o status se quiser (opcional)
     
     let message = "Olá May Cosméticos! Gostaria de fazer o seguinte pedido:\n\n";
     cart.forEach(item => {
       message += `${item.quantity}x ${item.product.name} (R$ ${item.product.price.toFixed(2)})\n`;
     });
-    message += `\n*Total: R$ ${cartTotal.toFixed(2)}*\n\nComo podemos combinar a entrega?`;
+    message += `\n*Total: R$ ${cartTotal.toFixed(2)}*\n`;
+    
+    if (paidWithPix) {
+       message += `\n✅ *Pagamento via Pix efetuado!* Segue o meu comprovante: `;
+    } else {
+       message += `\nComo podemos combinar a entrega?`;
+    }
     
     const encodedMessage = encodeURIComponent(message);
     window.open(`https://wa.me/${whatsappNumber}?text=${encodedMessage}`, '_blank');
+    
+    if (paidWithPix) {
+      setCart([]);
+      setIsCartOpen(false);
+      setCheckoutMode('cart');
+    }
   };
 
   if (loading) {
@@ -206,9 +327,15 @@ export default function Storefront() {
               <div className="product-info">
                 <h3>{product.name}</h3>
                 <p className="price">R$ {product.price.toFixed(2)}</p>
-                <button className="add-to-cart-btn" onClick={() => addToCart(product)}>
-                  Adicionar
-                </button>
+                {product.stock !== undefined && product.stock <= 0 ? (
+                  <button className="add-to-cart-btn" style={{ background: '#999', cursor: 'not-allowed' }} disabled>
+                    Esgotado
+                  </button>
+                ) : (
+                  <button className="add-to-cart-btn" onClick={() => addToCart(product)}>
+                    Adicionar
+                  </button>
+                )}
               </div>
             </div>
           ))}
@@ -217,14 +344,16 @@ export default function Storefront() {
 
       {/* CARRINHO DE COMPRAS (SIDEBAR) */}
       {isCartOpen && (
-        <div className="cart-overlay" onClick={() => setIsCartOpen(false)}>
+        <div className="cart-overlay" onClick={() => { setIsCartOpen(false); setCheckoutMode('cart'); }}>
           <div className="cart-sidebar" onClick={(e) => e.stopPropagation()}>
             <div className="cart-header">
-              <h2>Seu Carrinho</h2>
-              <button className="close-cart" onClick={() => setIsCartOpen(false)}>✕</button>
+              <h2>{checkoutMode === 'pix' ? 'Pagamento Pix' : 'Seu Carrinho'}</h2>
+              <button className="close-cart" onClick={() => { setIsCartOpen(false); setCheckoutMode('cart'); }}>✕</button>
             </div>
             
-            <div className="cart-items">
+            {checkoutMode === 'cart' ? (
+              <>
+                <div className="cart-items">
               {cart.length === 0 ? (
                 <p className="empty-cart">Seu carrinho está vazio.</p>
               ) : (
@@ -256,18 +385,91 @@ export default function Storefront() {
                 </div>
                 <div className="cart-footer-buttons">
                   <button
-                    onClick={handleInfinitePayCheckout}
+                    onClick={() => startCheckout('cartao')}
                     disabled={isCheckoutLoading}
                     className="checkout-btn-infinitepay"
+                    style={{ marginBottom: '10px' }}
                   >
-                    {isCheckoutLoading ? (
-                      <span className="spinner-small"></span>
-                    ) : (
-                      <>💳 Pagar Agora (Cartão/Pix)</>
-                    )}
+                    {isCheckoutLoading ? <span className="spinner-small"></span> : <>💳 Cartão de Crédito</>}
                   </button>
-                  <button className="checkout-btn" onClick={handleCheckout}>
-                    Enviar Pedido por WhatsApp
+                  
+                  {pixKey && (
+                    <button 
+                      onClick={() => startCheckout('pix')} 
+                      style={{ width: '100%', padding: '12px', background: '#10b981', color: 'white', border: 'none', borderRadius: '8px', fontWeight: 'bold', fontSize: '1rem', cursor: 'pointer', marginBottom: '10px' }}
+                    >
+                      <span style={{ marginRight: '5px' }}>💠</span> Pagar com Pix Direto
+                    </button>
+                  )}
+                  
+                  <button className="checkout-btn" onClick={() => startCheckout('whatsapp')}>
+                    Combinar Pagamento via WhatsApp
+                  </button>
+                </div>
+              </div>
+            )}
+            </>
+            ) : checkoutMode === 'customer' ? (
+              <div style={{ padding: '20px', display: 'flex', flexDirection: 'column', height: '100%' }}>
+                <h3 style={{ color: '#ec4899', marginBottom: '20px' }}>Detalhes da Entrega</h3>
+                <form onSubmit={handleCustomerSubmit} style={{ display: 'flex', flexDirection: 'column', gap: '15px' }}>
+                  <div>
+                    <label style={{ display: 'block', marginBottom: '5px', fontWeight: 'bold', color: '#555' }}>Nome Completo *</label>
+                    <input type="text" required value={customerInfo.name} onChange={e => setCustomerInfo({...customerInfo, name: e.target.value})} style={{ width: '100%', padding: '10px', borderRadius: '8px', border: '1px solid #ddd' }} placeholder="Ex: Maria Silva" />
+                  </div>
+                  <div>
+                    <label style={{ display: 'block', marginBottom: '5px', fontWeight: 'bold', color: '#555' }}>WhatsApp *</label>
+                    <input type="tel" required value={customerInfo.phone} onChange={e => setCustomerInfo({...customerInfo, phone: e.target.value})} style={{ width: '100%', padding: '10px', borderRadius: '8px', border: '1px solid #ddd' }} placeholder="(00) 00000-0000" />
+                  </div>
+                  <div>
+                    <label style={{ display: 'block', marginBottom: '5px', fontWeight: 'bold', color: '#555' }}>Endereço Completo (Opcional)</label>
+                    <textarea value={customerInfo.address} onChange={e => setCustomerInfo({...customerInfo, address: e.target.value})} style={{ width: '100%', padding: '10px', borderRadius: '8px', border: '1px solid #ddd', minHeight: '80px' }} placeholder="Rua, Número, Bairro..."></textarea>
+                  </div>
+                  
+                  <div style={{ marginTop: 'auto', paddingTop: '20px' }}>
+                    <button type="submit" disabled={isCheckoutLoading} style={{ width: '100%', padding: '15px', background: '#ec4899', color: 'white', border: 'none', borderRadius: '8px', fontWeight: 'bold', fontSize: '1.1rem', cursor: 'pointer', marginBottom: '10px' }}>
+                      {isCheckoutLoading ? "Processando..." : "Continuar para Pagamento"}
+                    </button>
+                    <button type="button" onClick={() => setCheckoutMode('cart')} style={{ width: '100%', padding: '15px', background: 'transparent', color: '#666', border: 'none', cursor: 'pointer', textDecoration: 'underline' }}>
+                      Voltar
+                    </button>
+                  </div>
+                </form>
+              </div>
+            ) : (
+              <div style={{ padding: '20px', textAlign: 'center', display: 'flex', flexDirection: 'column', height: '100%' }}>
+                <h3 style={{ color: '#166534', marginBottom: '10px' }}>Escaneie para Pagar</h3>
+                <p style={{ color: '#555', marginBottom: '20px' }}>Abra o app do seu banco e escaneie o QR Code abaixo para pagar <strong>R$ {cartTotal.toFixed(2)}</strong>.</p>
+                
+                <div style={{ background: '#f0fdf4', padding: '20px', borderRadius: '12px', display: 'inline-block', margin: '0 auto 20px auto', border: '1px solid #bbf7d0' }}>
+                  {pixPayload ? (
+                    <QRCodeSVG value={pixPayload} size={200} />
+                  ) : (
+                    <div style={{ width: 200, height: 200, display: 'flex', alignItems: 'center', justifyContent: 'center', color: '#999' }}>Gerando...</div>
+                  )}
+                </div>
+
+                {pixPayload && (
+                  <button 
+                    onClick={() => { navigator.clipboard.writeText(pixPayload); alert("Código Pix Copia e Cola copiado!"); }}
+                    style={{ background: '#eee', border: 'none', padding: '10px 15px', borderRadius: '8px', cursor: 'pointer', fontWeight: 'bold', color: '#333', marginBottom: '30px' }}
+                  >
+                    Copiar Código Pix
+                  </button>
+                )}
+
+                <div style={{ marginTop: 'auto' }}>
+                  <button 
+                    onClick={() => handleWhatsAppOrder(true)}
+                    style={{ width: '100%', padding: '15px', background: '#25D366', color: 'white', border: 'none', borderRadius: '8px', fontWeight: 'bold', fontSize: '1.1rem', cursor: 'pointer', marginBottom: '10px' }}
+                  >
+                    Já Paguei! Enviar Comprovante
+                  </button>
+                  <button 
+                    onClick={() => setCheckoutMode('cart')}
+                    style={{ width: '100%', padding: '15px', background: 'transparent', color: '#666', border: 'none', cursor: 'pointer', textDecoration: 'underline' }}
+                  >
+                    Voltar para o Carrinho
                   </button>
                 </div>
               </div>
@@ -276,9 +478,10 @@ export default function Storefront() {
         </div>
       )}
 
-      <footer className="footer">
+      <footer className="footer" style={{ paddingBottom: '80px' }}>
         <p>&copy; {new Date().getFullYear()} May Cosméticos. Todos os direitos reservados.</p>
       </footer>
+      <BottomNav />
     </div>
   );
 }
