@@ -101,29 +101,17 @@ export default function Storefront() {
 
     setIsCheckoutLoading(true);
     try {
-      // 1. Atualizar ou Criar Cliente no CRM
+      // 1. Salvar dados do cliente (apenas criar, sem ler para não dar erro de permissão no Firebase)
       const customersRef = collection(db, "customers");
-      const q = query(customersRef, where("name", "==", customerInfo.name.trim()));
-      const snap = await getDocs(q);
-      
-      let customerId = "";
-      if (!snap.empty) {
-        customerId = snap.docs[0].id;
-        await updateDoc(doc(db, "customers", customerId), {
-          phone: customerInfo.phone || "",
-          address: customerInfo.address || ""
-        });
-      } else {
-        const newCustomer = await addDoc(customersRef, {
-          name: customerInfo.name.trim() || "Cliente Sem Nome",
-          phone: customerInfo.phone || "",
-          address: customerInfo.address || "",
-          totalGasto: 0,
-          totalDivida: 0
-        });
-        customerId = newCustomer.id;
-      }
-
+      const docRef = await addDoc(customersRef, {
+        name: customerInfo.name.trim() || "Cliente Sem Nome",
+        phone: customerInfo.phone || "",
+        address: customerInfo.address || "",
+        totalGasto: 0,
+        totalDivida: 0,
+        createdAt: new Date().toISOString()
+      });
+      const customerId = docRef.id;
       // 2. Registrar o Pedido Pendente (sem baixar estoque)
       const cartTotalCalc = cart.reduce((total, item) => total + (item.product.price || 0) * item.quantity, 0);
       await addDoc(collection(db, "sales"), {
