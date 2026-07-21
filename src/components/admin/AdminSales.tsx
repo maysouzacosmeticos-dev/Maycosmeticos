@@ -1,6 +1,6 @@
 import { useState } from 'react';
-import { Package, Clock, CheckCircle } from 'lucide-react';
-import { doc, updateDoc, increment } from 'firebase/firestore';
+import { Package, Clock, CheckCircle, Trash2 } from 'lucide-react';
+import { doc, updateDoc, increment, deleteDoc } from 'firebase/firestore';
 import { db } from '../../firebase';
 
 interface Props {
@@ -25,6 +25,18 @@ export function AdminSales({ sales, onUpdate }: Props) {
         alert('Venda confirmada e estoque atualizado!');
       } catch (e) {
         alert('Erro ao confirmar.');
+      }
+    }
+  };
+
+  const handleDeleteSale = async (sale: any) => {
+    if (window.confirm('Deseja realmente apagar/cancelar esta venda do histórico?')) {
+      try {
+        await deleteDoc(doc(db, "sales", sale.id));
+        onUpdate();
+        alert('Venda apagada com sucesso.');
+      } catch (e) {
+        alert('Erro ao apagar venda.');
       }
     }
   };
@@ -61,13 +73,23 @@ export function AdminSales({ sales, onUpdate }: Props) {
               </div>
               
               {sale.status === 'pendente' ? (
-                <button onClick={() => handleConfirmPayment(sale)} style={{ background: '#4CAF50', color: '#fff', border: 'none', padding: '10px 15px', borderRadius: '8px', cursor: 'pointer', fontWeight: 'bold', display: 'flex', alignItems: 'center', gap: '5px' }}>
-                  <Clock size={18} /> Confirmar
-                </button>
+                <div style={{ display: 'flex', gap: '5px' }}>
+                  <button onClick={() => handleConfirmPayment(sale)} style={{ background: '#4CAF50', color: '#fff', border: 'none', padding: '10px 15px', borderRadius: '8px', cursor: 'pointer', fontWeight: 'bold', display: 'flex', alignItems: 'center', gap: '5px' }}>
+                    <Clock size={18} /> Confirmar
+                  </button>
+                  <button onClick={() => handleDeleteSale(sale)} style={{ background: '#ffebee', color: '#c62828', border: 'none', padding: '10px', borderRadius: '8px', cursor: 'pointer' }}>
+                    <Trash2 size={18} />
+                  </button>
+                </div>
               ) : (
-                <span style={{ display: 'flex', alignItems: 'center', gap: '5px', color: '#4CAF50', fontWeight: 'bold', padding: '10px' }}>
-                  <CheckCircle size={18} /> Pago
-                </span>
+                <div style={{ display: 'flex', alignItems: 'center', gap: '15px' }}>
+                  <span style={{ display: 'flex', alignItems: 'center', gap: '5px', color: '#4CAF50', fontWeight: 'bold', padding: '10px' }}>
+                    <CheckCircle size={18} /> Pago
+                  </span>
+                  <button onClick={() => handleDeleteSale(sale)} style={{ background: '#ffebee', color: '#c62828', border: 'none', padding: '10px', borderRadius: '8px', cursor: 'pointer' }}>
+                    <Trash2 size={18} />
+                  </button>
+                </div>
               )}
             </div>
 

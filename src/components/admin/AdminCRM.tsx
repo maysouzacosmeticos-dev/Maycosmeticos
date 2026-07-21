@@ -1,6 +1,6 @@
 import { useState } from 'react';
-import { Users, Search, MessageCircle, FileText, ChevronDown, ChevronUp } from 'lucide-react';
-import { doc, updateDoc, increment } from 'firebase/firestore';
+import { Users, Search, MessageCircle, FileText, ChevronDown, ChevronUp, Edit2, Trash2 } from 'lucide-react';
+import { doc, updateDoc, increment, deleteDoc } from 'firebase/firestore';
 import { db } from '../../firebase';
 
 interface Props {
@@ -49,6 +49,37 @@ export function AdminCRM({ customers, sales, onUpdate }: Props) {
     }
   };
 
+  const handleDeleteCustomer = async (id: string) => {
+    if(window.confirm('Apagar permanentemente este cliente e suas anotações?')) {
+      try {
+        await deleteDoc(doc(db, "customers", id));
+        onUpdate();
+      } catch (e) {
+        alert("Erro ao apagar cliente.");
+      }
+    }
+  };
+
+  const handleEditCustomer = async (c: any) => {
+    const newName = window.prompt("Nome do cliente:", c.name);
+    if (newName === null) return;
+    const newPhone = window.prompt("WhatsApp:", c.phone || '');
+    if (newPhone === null) return;
+    const newAddress = window.prompt("Endereço:", c.address || '');
+    if (newAddress === null) return;
+
+    try {
+      await updateDoc(doc(db, "customers", c.id), {
+        name: newName.trim(),
+        phone: newPhone.trim(),
+        address: newAddress.trim()
+      });
+      onUpdate();
+    } catch(e) {
+      alert("Erro ao atualizar cliente.");
+    }
+  };
+
   return (
     <div style={{ display: 'flex', flexDirection: 'column', gap: '20px' }}>
       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: '10px' }}>
@@ -86,10 +117,18 @@ export function AdminCRM({ customers, sales, onUpdate }: Props) {
                   <p style={{ margin: 0, color: '#666', fontSize: '0.9rem' }}>📱 {customer.phone} {customer.address ? `| 🏠 ${customer.address}` : ''}</p>
                 </div>
                 <div style={{ display: 'flex', alignItems: 'center', gap: '15px' }}>
-                  <div style={{ textAlign: 'right' }}>
+                  <div style={{ textAlign: 'right', marginRight: '10px' }}>
                     <p style={{ margin: 0, fontSize: '0.85rem', color: '#888' }}>Total Comprado</p>
                     <p style={{ margin: 0, fontWeight: 'bold', color: 'var(--color-gold-dark)' }}>R$ {(customer.totalGasto || 0).toFixed(2)}</p>
                   </div>
+                  
+                  {isExpanded && (
+                    <div style={{ display: 'flex', gap: '5px', marginRight: '10px' }}>
+                      <button onClick={(e) => { e.stopPropagation(); handleEditCustomer(customer); }} style={{ background: '#e3f2fd', color: '#1565c0', border: 'none', padding: '6px', borderRadius: '6px', cursor: 'pointer' }}><Edit2 size={16}/></button>
+                      <button onClick={(e) => { e.stopPropagation(); handleDeleteCustomer(customer.id); }} style={{ background: '#ffebee', color: '#c62828', border: 'none', padding: '6px', borderRadius: '6px', cursor: 'pointer' }}><Trash2 size={16}/></button>
+                    </div>
+                  )}
+
                   {isExpanded ? <ChevronUp color="#888" /> : <ChevronDown color="#888" />}
                 </div>
               </div>
