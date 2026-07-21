@@ -101,17 +101,15 @@ export default function Storefront() {
 
     setIsCheckoutLoading(true);
     try {
-      // 1. Salvar dados do cliente (apenas criar, sem ler para não dar erro de permissão no Firebase)
-      const customersRef = collection(db, "customers");
-      const docRef = await addDoc(customersRef, {
+      // 1. Salvar dados do cliente no mesmo perfil (usando o telefone como ID)
+      const customerId = customerInfo.phone.replace(/\D/g, "");
+      const customerRef = doc(db, "customers", customerId);
+      await setDoc(customerRef, {
         name: customerInfo.name.trim() || "Cliente Sem Nome",
         phone: customerInfo.phone || "",
         address: customerInfo.address || "",
-        totalGasto: 0,
-        totalDivida: 0,
-        createdAt: new Date().toISOString()
-      });
-      const customerId = docRef.id;
+        lastPurchase: new Date().toISOString()
+      }, { merge: true });
       // 2. Registrar o Pedido Pendente (sem baixar estoque)
       const cartTotalCalc = cart.reduce((total, item) => total + (item.product.price || 0) * item.quantity, 0);
       await addDoc(collection(db, "sales"), {
