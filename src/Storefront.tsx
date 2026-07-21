@@ -165,19 +165,12 @@ export default function Storefront() {
     try {
       const items = cart.map(item => ({
         id: item.product.id.toString(),
-        description: item.product.name,
-        price: Math.round(item.product.price * 100),
         quantity: item.quantity
       }));
 
-      const payload = {
-        handle: "maycosmeticos2026",
-        redirect_url: window.location.origin,
-        order_nsu: Date.now().toString(),
-        items: items
-      };
+      const payload = { items };
 
-      const response = await fetch("/.netlify/functions/create-payment", {
+      const response = await fetch("/api/create-payment", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify(payload)
