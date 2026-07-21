@@ -1,21 +1,34 @@
 import admin from 'firebase-admin';
 
 // Initialize Firebase Admin if not already initialized
-if (!admin.apps.length) {
+let firebaseConfig;
+try {
+  if (process.env.FIREBASE_SERVICE_ACCOUNT) {
+    firebaseConfig = JSON.parse(process.env.FIREBASE_SERVICE_ACCOUNT);
+  }
+} catch (e) {
+  console.error("Error parsing FIREBASE_SERVICE_ACCOUNT", e);
+}
+
+if (!admin.apps.length && firebaseConfig) {
   try {
     admin.initializeApp({
-      credential: admin.credential.cert(JSON.parse(process.env.FIREBASE_SERVICE_ACCOUNT))
+      credential: admin.credential.cert(firebaseConfig)
     });
   } catch (error) {
     console.error('Firebase Admin initialization error', error.stack);
   }
 }
 
-const db = admin.firestore();
+const db = admin.apps.length ? admin.firestore() : null;
 
 export default async function handler(req, res) {
   // CORS Configuration
-  const allowedOrigins = ['https://resonant-queijadas-a99c55.netlify.app', 'http://localhost:5173'];
+  const allowedOrigins = [
+    'https://resonant-queijadas-a99c55.netlify.app', 
+    'https://maycosmeticos.vercel.app',
+    'http://localhost:5173'
+  ];
   const origin = req.headers.origin;
   
   if (allowedOrigins.includes(origin)) {
@@ -32,6 +45,10 @@ export default async function handler(req, res) {
   // Only allow POST
   if (req.method !== 'POST') {
     return res.status(405).json({ error: 'Method Not Allowed' });
+  }
+
+  if (!db) {
+    return res.status(500).json({ error: 'Missing FIREBASE_SERVICE_ACCOUNT variable in Vercel. Please add it to your project environment variables.' });
   }
 
   try {
