@@ -88,7 +88,7 @@ export default async function handler(req, res) {
 
     // Construct the payload for InfinitePay with the HARDCODED handle
     const payload = {
-      handle: "maycosmeticos2026",
+      handle: "maycosmeticos26",
       redirect_url: origin || "https://resonant-queijadas-a99c55.netlify.app",
       order_nsu: order_nsu,
       items: validatedItems
