@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react';
-import { collection, getDocs, doc, setDoc, increment, getDoc, addDoc, query, where, updateDoc } from 'firebase/firestore';
+import { collection, getDocs, doc, setDoc, increment, getDoc, addDoc } from 'firebase/firestore';
 import { generatePixPayload } from './utils/generatePix';
 import { db } from './firebase';
 import type { Product } from './data/products';
