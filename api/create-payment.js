@@ -1,4 +1,5 @@
-import admin from 'firebase-admin';
+import { getApps, initializeApp, cert } from 'firebase-admin/app';
+import { getFirestore } from 'firebase-admin/firestore';
 
 // Initialize Firebase Admin if not already initialized
 let firebaseConfig;
@@ -10,17 +11,17 @@ try {
   console.error("Error parsing FIREBASE_SERVICE_ACCOUNT", e);
 }
 
-if (!admin.apps.length && firebaseConfig) {
+if (!getApps().length && firebaseConfig) {
   try {
-    admin.initializeApp({
-      credential: admin.credential.cert(firebaseConfig)
+    initializeApp({
+      credential: cert(firebaseConfig)
     });
   } catch (error) {
     console.error('Firebase Admin initialization error', error.stack);
   }
 }
 
-const db = admin.apps.length ? admin.firestore() : null;
+const db = getApps().length ? getFirestore() : null;
 
 export default async function handler(req, res) {
   // CORS Configuration
