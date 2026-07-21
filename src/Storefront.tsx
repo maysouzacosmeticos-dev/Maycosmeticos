@@ -170,12 +170,15 @@ export default function Storefront() {
 
       const payload = { items };
 
+      console.log("Iniciando requisição para /api/create-payment com:", payload);
       const response = await fetch("/api/create-payment", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify(payload)
       });
+      
       const data = await response.json();
+      console.log("Resposta da API:", response.status, data);
 
       if (!response.ok) {
         alert(`Erro da InfinitePay: ${data.message || JSON.stringify(data) || "Erro."}`);
@@ -188,9 +191,14 @@ export default function Storefront() {
         setCart([]);
         setIsCartOpen(false);
         window.location.href = paymentUrl;
+      } else {
+        console.error("URL de pagamento não encontrada na resposta:", data);
+        alert("O servidor respondeu com sucesso, mas não enviou o link de pagamento. Tente novamente.");
+        setIsCheckoutLoading(false);
       }
     } catch (error: any) {
-      alert(`Houve um problema: ${error.message}`);
+      console.error("Erro no executeInfinitePayCheckout:", error);
+      alert(`Houve um problema ao gerar o link: ${error.message}`);
       setIsCheckoutLoading(false);
     }
   };
