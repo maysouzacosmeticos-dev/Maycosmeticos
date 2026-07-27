@@ -53,15 +53,18 @@ export default async function handler(req, res) {
   }
 
   try {
-    const { items } = req.body;
+    const { items, customerInfo } = req.body;
 
     if (!items || !Array.isArray(items) || items.length === 0) {
       return res.status(400).json({ error: 'Invalid or empty items array' });
     }
+    if (!customerInfo || !customerInfo.phone) {
+      return res.status(400).json({ error: 'Customer phone is required' });
+    }
 
     const validatedItems = [];
-    let order_nsu = Date.now().toString();
-
+    let cartTotalCalc = 0;
+    
     // Fetch real prices from Firestore
     for (const item of items) {
       if (!item.id || !item.quantity) {
@@ -77,24 +80,74 @@ export default async function handler(req, res) {
 
       const productData = productSnap.data();
       const priceInCents = Math.round(productData.price * 100);
+      cartTotalCalc += (productData.price * parseInt(item.quantity, 10));
 
       validatedItems.push({
         id: item.id,
         description: productData.name || 'Produto',
         price: priceInCents,
-        quantity: parseInt(item.quantity, 10)
+        quantity: parseInt(item.quantity, 10),
+        // For our own db storage:
+        originalPrice: productData.price 
       });
     }
 
-    // Construct the payload for InfinitePay with the HARDCODED handle
+    // 1. Manage Customer Profile (Deduplication)
+    const customerId = customerInfo.phone.replace(/\D/g, "");
+    const customerRef = db.collection("customers").doc(customerId);
+    
+    await customerRef.set({
+      name: customerInfo.name?.trim() || "Cliente Sem Nome",
+      phone: customerInfo.phone || "",
+      address: customerInfo.address || "",
+      lastPurchase: new Date().toISOString()
+    }, { merge: true });
+
+    // 2. Create the Sale Document in Firebase (status: pending)
+    const newSaleRef = db.collection("sales").doc(); // auto-generate ID
+    const saleId = newSaleRef.id;
+    
+    const method = req.body.method || 'InfinitePay'; // 'InfinitePay' or 'WhatsApp'
+
+    await newSaleRef.set({
+      date: new Date().toISOString(),
+      items: validatedItems.map(vi => ({
+        id: vi.id,
+        name: vi.description,
+        price: vi.originalPrice,
+        quantity: vi.quantity
+      })),
+      total: cartTotalCalc,
+      method: method, 
+      source: 'Online',
+      status: 'pendente',
+      customerName: customerInfo.name?.trim() || "Cliente Sem Nome",
+      customerId: customerId,
+      customerPhone: customerInfo.phone || "",
+      customerAddress: customerInfo.address || "",
+      amountPaid: 0,
+      infinitePayOrderId: method !== 'WhatsApp' ? saleId : null
+    });
+
+    if (method === 'WhatsApp') {
+      // No need to contact InfinitePay
+      return res.status(200).json({ success: true, saleId: saleId });
+    }
+
+    // 3. Construct the payload for InfinitePay with our Sale ID as order_nsu
     const payload = {
       handle: "maycosmeticos26",
-      redirect_url: origin || "https://resonant-queijadas-a99c55.netlify.app",
-      order_nsu: order_nsu,
-      items: validatedItems
+      redirect_url: origin || "https://maycosmeticos.vercel.app",
+      order_nsu: saleId, 
+      items: validatedItems.map(vi => ({
+        id: vi.id,
+        description: vi.description,
+        price: vi.price,
+        quantity: vi.quantity
+      }))
     };
 
-    // Make the request to InfinitePay
+    // 4. Request the Checkout Link
     const response = await fetch("https://api.checkout.infinitepay.io/links", {
       method: "POST",
       headers: {
@@ -104,7 +157,9 @@ export default async function handler(req, res) {
     });
 
     const data = await response.json();
-    return res.status(response.status).json(data);
+    
+    // We return both the InfinitePay data and the created sale ID
+    return res.status(response.status).json({ ...data, saleId: saleId });
   } catch (error) {
     console.error("API Error:", error);
     return res.status(500).json({ error: "Internal Server Error" });

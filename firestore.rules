@@ -8,21 +8,14 @@ service cloud.firestore {
       allow write: if request.auth != null;
     }
 
-    // VENDAS: criação pública só no formato de pedido pendente
+    // VENDAS: Fechado para o público. Apenas Admin (ou a API Serverless via Admin SDK)
     match /sales/{saleId} {
-      allow create: if request.resource.data.status == 'pendente'
-                    && request.resource.data.amountPaid == 0;
-      allow read, update, delete: if request.auth != null;
+      allow read, write: if request.auth != null;
     }
 
-    // CLIENTES: create público só se saldo for zerado
+    // CLIENTES: Fechado para o público. Apenas Admin (ou a API Serverless via Admin SDK)
     match /customers/{customerId} {
-      allow create: if request.resource.data.get('totalGasto', 0) == 0
-                    && request.resource.data.get('totalDivida', 0) == 0;
-      allow update: if request.auth != null
-                    || request.resource.data.diff(resource.data)
-                         .affectedKeys().hasOnly(['name','phone','address','lastPurchase']);
-      allow read, delete: if request.auth != null;
+      allow read, write: if request.auth != null;
     }
 
     // CONFIGURAÇÕES: leitura pública (o QR Pix depende disso), escrita só admin

@@ -101,90 +101,51 @@ export default function Storefront() {
 
     setIsCheckoutLoading(true);
     try {
-      // 1. Salvar dados do cliente no mesmo perfil (usando o telefone como ID)
-      const customerId = customerInfo.phone.replace(/\D/g, "");
-      const customerRef = doc(db, "customers", customerId);
-      await setDoc(customerRef, {
-        name: customerInfo.name.trim() || "Cliente Sem Nome",
-        phone: customerInfo.phone || "",
-        address: customerInfo.address || "",
-        lastPurchase: new Date().toISOString()
-      }, { merge: true });
-      // 2. Registrar o Pedido Pendente (sem baixar estoque)
-      const cartTotalCalc = cart.reduce((total, item) => total + (item.product.price || 0) * item.quantity, 0);
-      await addDoc(collection(db, "sales"), {
-        date: new Date().toISOString(),
+      const payload = {
         items: cart.map(item => ({
-          id: item.product.id || "sem-id",
-          name: item.product.name || "Produto sem nome",
-          price: item.product.price || 0,
-          quantity: item.quantity || 1
+          id: item.product.id.toString(),
+          quantity: item.quantity
         })),
-        total: cartTotalCalc,
-        method: selectedPaymentMethod === 'cartao' ? 'InfinitePay' : (selectedPaymentMethod === 'pix' ? 'Pix' : 'WhatsApp'),
-        source: 'Online',
-        status: 'pendente',
-        customerName: customerInfo.name.trim() || "Cliente Sem Nome",
-        customerId: customerId,
-        customerPhone: customerInfo.phone || "",
-        customerAddress: customerInfo.address || "",
-        amountPaid: 0
-      });
+        customerInfo: customerInfo,
+        method: selectedPaymentMethod === 'whatsapp' ? 'WhatsApp' : 'InfinitePay'
+      };
 
-      // 3. Redirecionar para o passo final
-      if (selectedPaymentMethod === 'cartao') {
-        await executeInfinitePayCheckout();
-      } else if (selectedPaymentMethod === 'pix') {
-        setCheckoutMode('pix');
-        setIsCheckoutLoading(false);
-      } else {
-        handleWhatsAppOrder(false, true); // true = bypass customer check since we just saved it
-      }
-    } catch (e) {
-      console.error("Erro ao registrar pedido:", e);
-      alert("Erro ao processar pedido. Tente novamente.");
-      setIsCheckoutLoading(false);
-    }
-  };
-
-  const executeInfinitePayCheckout = async () => {
-    try {
-      const items = cart.map(item => ({
-        id: item.product.id.toString(),
-        quantity: item.quantity
-      }));
-
-      const payload = { items };
-
-      console.log("Iniciando requisição para /api/create-payment com:", payload);
-      const response = await fetch("/api/create-payment", {
+      const response = await fetch("/api/checkout", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify(payload)
       });
       
       const data = await response.json();
-      console.log("Resposta da API:", response.status, data);
 
       if (!response.ok) {
-        alert(`Erro da InfinitePay: ${data.message || JSON.stringify(data) || "Erro."}`);
+        alert(`Erro ao processar: ${data.error || data.message || "Erro desconhecido."}`);
+        setIsCheckoutLoading(false);
+        return;
+      }
+
+      // Se for WhatsApp, a venda foi criada e apenas abrimos o WhatsApp
+      if (selectedPaymentMethod === 'whatsapp') {
+        handleWhatsAppOrder(false, true); // true = bypass customer check
+        setCart([]);
+        setIsCartOpen(false);
         setIsCheckoutLoading(false);
         return;
       }
       
+      // Se for InfinitePay, redireciona para a URL de pagamento
       const paymentUrl = data.link_url || data.url;
       if (paymentUrl) {
         setCart([]);
         setIsCartOpen(false);
         window.location.href = paymentUrl;
       } else {
-        console.error("URL de pagamento não encontrada na resposta:", data);
-        alert("O servidor respondeu com sucesso, mas não enviou o link de pagamento. Tente novamente.");
+        alert("O servidor respondeu com sucesso, mas não enviou o link de pagamento.");
         setIsCheckoutLoading(false);
       }
-    } catch (error: any) {
-      console.error("Erro no executeInfinitePayCheckout:", error);
-      alert(`Houve um problema ao gerar o link: ${error.message}`);
+    } catch (e) {
+      console.error("Erro no checkout:", e);
+      alert("Houve um problema de conexão. Tente novamente.");
       setIsCheckoutLoading(false);
     }
   };
@@ -375,19 +336,10 @@ export default function Storefront() {
                     onClick={() => startCheckout('cartao')}
                     disabled={isCheckoutLoading}
                     className="checkout-btn-infinitepay"
-                    style={{ marginBottom: '10px' }}
+                    style={{ marginBottom: '10px', background: '#111', color: 'white' }}
                   >
-                    {isCheckoutLoading ? <span className="spinner-small"></span> : <>💳 Cartão de Crédito</>}
+                    {isCheckoutLoading ? <span className="spinner-small"></span> : <>💳 Pagar via InfinitePay (Cartão ou Pix)</>}
                   </button>
-                  
-                  {pixKey && (
-                    <button 
-                      onClick={() => startCheckout('pix')} 
-                      style={{ width: '100%', padding: '12px', background: '#10b981', color: 'white', border: 'none', borderRadius: '8px', fontWeight: 'bold', fontSize: '1rem', cursor: 'pointer', marginBottom: '10px' }}
-                    >
-                      <span style={{ marginRight: '5px' }}>💠</span> Pagar com Pix Direto
-                    </button>
-                  )}
                   
                   <button className="checkout-btn" onClick={() => startCheckout('whatsapp')}>
                     Combinar Pagamento via WhatsApp
