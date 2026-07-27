@@ -1,27 +1,46 @@
 rules_version = '2';
 service cloud.firestore {
   match /databases/{database}/documents {
-    // Regras de Produtos (Vitrine: todos veem, apenas Admin edita)
-    match /products/{document=**} {
+
+    // PRODUTOS: leitura pública, escrita só admin
+    match /products/{productId} {
       allow read: if true;
-      allow write, update, delete: if request.auth != null;
+      allow write: if request.auth != null;
     }
-    
-    // Regras de Vendas (Checkout: qualquer um cria a venda, admin edita)
-    match /sales/{document=**} {
-      allow create: if true;
+
+    // VENDAS: criação pública só no formato de pedido pendente
+    match /sales/{saleId} {
+      allow create: if request.resource.data.status == 'pendente'
+                    && request.resource.data.amountPaid == 0;
       allow read, update, delete: if request.auth != null;
     }
-    
-    // Regras de Clientes (Otimizado para CRM: não duplica clientes, checkout apenas atualiza)
-    match /customers/{document=**} {
-      allow create, update: if true;
+
+    // CLIENTES: create público só se saldo for zerado
+    match /customers/{customerId} {
+      allow create: if request.resource.data.get('totalGasto', 0) == 0
+                    && request.resource.data.get('totalDivida', 0) == 0;
+      allow update: if request.auth != null
+                    || request.resource.data.diff(resource.data)
+                         .affectedKeys().hasOnly(['name','phone','address','lastPurchase']);
       allow read, delete: if request.auth != null;
     }
-    
-    // Qualquer outra coisa (Configurações, Analíticos, etc): Apenas Admin
+
+    // CONFIGURAÇÕES: leitura pública (o QR Pix depende disso), escrita só admin
+    match /settings/{settingId} {
+      allow read: if true;
+      allow write: if request.auth != null;
+    }
+
+    // ANALYTICS: só pode incrementar o campo count
+    match /analytics/visits {
+      allow read: if request.auth != null;
+      allow write: if request.resource.data.diff(resource.data)
+                        .affectedKeys().hasOnly(['count']);
+    }
+
+    // Qualquer outra coisa: bloqueado por padrão
     match /{document=**} {
-      allow read, write: if request.auth != null;
+      allow read, write: if false;
     }
   }
 }
