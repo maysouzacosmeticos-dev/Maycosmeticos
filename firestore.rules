@@ -1,0 +1,27 @@
+rules_version = '2';
+service cloud.firestore {
+  match /databases/{database}/documents {
+    // Regras de Produtos (Vitrine: todos veem, apenas Admin edita)
+    match /products/{document=**} {
+      allow read: if true;
+      allow write, update, delete: if request.auth != null;
+    }
+    
+    // Regras de Vendas (Checkout: qualquer um cria a venda, admin edita)
+    match /sales/{document=**} {
+      allow create: if true;
+      allow read, update, delete: if request.auth != null;
+    }
+    
+    // Regras de Clientes (Otimizado para CRM: não duplica clientes, checkout apenas atualiza)
+    match /customers/{document=**} {
+      allow create, update: if true;
+      allow read, delete: if request.auth != null;
+    }
+    
+    // Qualquer outra coisa (Configurações, Analíticos, etc): Apenas Admin
+    match /{document=**} {
+      allow read, write: if request.auth != null;
+    }
+  }
+}
