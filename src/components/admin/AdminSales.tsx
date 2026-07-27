@@ -10,8 +10,16 @@ interface Props {
 
 export function AdminSales({ sales, onUpdate }: Props) {
   const [filter, setFilter] = useState<'todos' | 'pendente' | 'pago'>('todos');
+  const [searchTerm, setSearchTerm] = useState('');
 
-  const filteredSales = sales.filter(s => filter === 'todos' ? true : s.status === filter);
+  const filteredSales = sales.filter(s => {
+    const matchesStatus = filter === 'todos' ? true : s.status === filter;
+    const searchLower = searchTerm.toLowerCase();
+    const matchesSearch = 
+      (s.customerName || '').toLowerCase().includes(searchLower) || 
+      (s.customerPhone || '').includes(searchTerm);
+    return matchesStatus && matchesSearch;
+  });
   const pendingCount = sales.filter(s => s.status === 'pendente').length;
 
   const handleConfirmPayment = async (sale: any) => {
@@ -43,7 +51,7 @@ export function AdminSales({ sales, onUpdate }: Props) {
 
   return (
     <div style={{ display: 'flex', flexDirection: 'column', gap: '20px' }}>
-      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: '10px' }}>
         <h2 style={{ margin: 0, display: 'flex', alignItems: 'center', gap: '10px' }}>
           <Package /> Gestão de Vendas
         </h2>
@@ -54,10 +62,22 @@ export function AdminSales({ sales, onUpdate }: Props) {
         )}
       </div>
 
-      <div style={{ display: 'flex', gap: '10px', marginBottom: '10px' }}>
-        <FilterButton active={filter === 'todos'} onClick={() => setFilter('todos')}>Todos</FilterButton>
-        <FilterButton active={filter === 'pendente'} onClick={() => setFilter('pendente')}>Pendentes</FilterButton>
-        <FilterButton active={filter === 'pago'} onClick={() => setFilter('pago')}>Concluídos</FilterButton>
+      <div style={{ display: 'flex', flexWrap: 'wrap', gap: '15px', alignItems: 'center' }}>
+        <div style={{ display: 'flex', gap: '10px' }}>
+          <FilterButton active={filter === 'todos'} onClick={() => setFilter('todos')}>Todos</FilterButton>
+          <FilterButton active={filter === 'pendente'} onClick={() => setFilter('pendente')}>Pendentes</FilterButton>
+          <FilterButton active={filter === 'pago'} onClick={() => setFilter('pago')}>Concluídos</FilterButton>
+        </div>
+        
+        <div style={{ display: 'flex', alignItems: 'center', background: '#fff', padding: '5px 15px', borderRadius: '25px', boxShadow: 'var(--shadow-card)', flex: '1 1 200px', maxWidth: '300px' }}>
+          <input 
+            type="text" 
+            placeholder="Buscar por cliente ou telefone..." 
+            value={searchTerm}
+            onChange={(e) => setSearchTerm(e.target.value)}
+            style={{ border: 'none', background: 'transparent', padding: '8px', width: '100%', outline: 'none' }}
+          />
+        </div>
       </div>
 
       <div style={{ display: 'flex', flexDirection: 'column', gap: '15px' }}>
