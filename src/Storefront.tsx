@@ -370,7 +370,7 @@ export default function Storefront() {
                   <span>Total:</span>
                   <span>R$ {cartTotal.toFixed(2)}</span>
                 </div>
-                <div className="cart-footer-buttons">
+                <div className="cart-footer-buttons" style={{ paddingBottom: '80px' }}>
                   <button
                     onClick={() => startCheckout('cartao')}
                     disabled={isCheckoutLoading}
@@ -397,7 +397,7 @@ export default function Storefront() {
             )}
             </>
             ) : checkoutMode === 'customer' ? (
-              <div style={{ padding: '20px', display: 'flex', flexDirection: 'column', height: '100%' }}>
+              <div style={{ padding: '20px', display: 'flex', flexDirection: 'column', height: '100%', paddingBottom: '90px' }}>
                 <h3 style={{ color: '#ec4899', marginBottom: '20px' }}>Detalhes da Entrega</h3>
                 <form onSubmit={handleCustomerSubmit} style={{ display: 'flex', flexDirection: 'column', gap: '15px' }}>
                   <div>
@@ -424,7 +424,7 @@ export default function Storefront() {
                 </form>
               </div>
             ) : (
-              <div style={{ padding: '20px', textAlign: 'center', display: 'flex', flexDirection: 'column', height: '100%' }}>
+              <div style={{ padding: '20px', textAlign: 'center', display: 'flex', flexDirection: 'column', height: '100%', paddingBottom: '90px' }}>
                 <h3 style={{ color: '#166534', marginBottom: '10px' }}>Escaneie para Pagar</h3>
                 <p style={{ color: '#555', marginBottom: '20px' }}>Abra o app do seu banco e escaneie o QR Code abaixo para pagar <strong>R$ {cartTotal.toFixed(2)}</strong>.</p>
                 
