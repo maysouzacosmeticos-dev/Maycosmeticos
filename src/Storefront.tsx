@@ -356,6 +356,18 @@ export default function Storefront() {
         <section className="products-grid">
           {displayProducts.map(renderProductCard)}
         </section>
+
+        {showPromosOnly && (
+          <div style={{ textAlign: 'center', marginTop: '3rem', marginBottom: '3rem' }}>
+            <p style={{ color: '#666', marginBottom: '15px' }}>Quer adicionar outros produtos ao carrinho?</p>
+            <button 
+              onClick={() => setShowPromosOnly(false)} 
+              style={{ padding: '15px 30px', background: '#333', border: 'none', borderRadius: '30px', color: 'white', fontWeight: 'bold', fontSize: '1.1rem', cursor: 'pointer', boxShadow: '0 4px 10px rgba(0,0,0,0.2)', transition: 'transform 0.2s' }}
+            >
+              Ver Toda a Loja 🛍️
+            </button>
+          </div>
+        )}
       </main>
 
       {/* CARRINHO DE COMPRAS (SIDEBAR) */}
