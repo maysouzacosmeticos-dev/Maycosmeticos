@@ -185,8 +185,14 @@ export default function Storefront() {
 
   const getEffectivePrice = (product: Product) => (product.isPromotion && product.promotionalPrice) ? product.promotionalPrice : product.price;
 
-  const cartTotal = cart.reduce((total, item) => total + getEffectivePrice(item.product) * item.quantity, 0);
+  const cartTotal = cart.reduce((total, item) => {
+    const price = item.product.isPromotion && item.product.promotionalPrice ? item.product.promotionalPrice : item.product.price;
+    return total + price * item.quantity;
+  }, 0);
+
   const cartItemCount = cart.reduce((count, item) => count + item.quantity, 0);
+
+  const requiresPixOnly = cart.some(item => item.product.isPromotion && item.product.promoPaymentMethod === 'pix_only');
 
   useEffect(() => {
     if (checkoutMode === 'pix' && pixKey && cartTotal > 0) {
@@ -400,11 +406,18 @@ export default function Storefront() {
                   <span>R$ {cartTotal.toFixed(2)}</span>
                 </div>
                 <div className="cart-footer-buttons" style={{ paddingBottom: '80px' }}>
+                  {requiresPixOnly && (
+                    <div style={{ background: '#fff3e0', border: '1px solid #ffb74d', color: '#e65100', padding: '10px', borderRadius: '8px', marginBottom: '15px', fontSize: '0.85rem', display: 'flex', alignItems: 'center', gap: '8px', lineHeight: '1.4' }}>
+                      <span style={{ fontSize: '1.2rem' }}>⚠️</span>
+                      Seu carrinho contém Ofertas Relâmpago exclusivas. O pagamento deve ser feito via PIX.
+                    </div>
+                  )}
+
                   <button
                     onClick={() => startCheckout('cartao')}
-                    disabled={isCheckoutLoading}
+                    disabled={isCheckoutLoading || requiresPixOnly}
                     className="checkout-btn-infinitepay"
-                    style={{ marginBottom: '10px', background: '#111', color: 'white' }}
+                    style={{ marginBottom: '10px', background: requiresPixOnly ? '#e0e0e0' : '#111', color: requiresPixOnly ? '#9e9e9e' : 'white', cursor: requiresPixOnly ? 'not-allowed' : 'pointer' }}
                   >
                     {isCheckoutLoading ? <span className="spinner-small"></span> : <>💳 Pagar com Cartão (InfinitePay)</>}
                   </button>
@@ -419,7 +432,12 @@ export default function Storefront() {
                     </button>
                   )}
                   
-                  <button className="checkout-btn" onClick={() => startCheckout('whatsapp')}>
+                  <button 
+                    className="checkout-btn" 
+                    onClick={() => startCheckout('whatsapp')}
+                    disabled={requiresPixOnly}
+                    style={{ background: requiresPixOnly ? '#e0e0e0' : 'var(--color-rose)', color: requiresPixOnly ? '#9e9e9e' : 'white', cursor: requiresPixOnly ? 'not-allowed' : 'pointer' }}
+                  >
                     Combinar Pagamento via WhatsApp
                   </button>
                 </div>

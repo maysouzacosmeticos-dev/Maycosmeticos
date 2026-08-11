@@ -21,11 +21,12 @@ export function AdminProducts({ productsList, onUpdate, migrateLocalProducts }: 
   const [newBarcode, setNewBarcode] = useState('');
   const [isPromotion, setIsPromotion] = useState(false);
   const [promotionalPrice, setPromotionalPrice] = useState('');
+  const [promoPaymentMethod, setPromoPaymentMethod] = useState<'all' | 'pix_only'>('all');
   const [newImage, setNewImage] = useState<File | null>(null);
   const [uploading, setUploading] = useState(false);
 
   const resetForm = () => {
-    setNewName(''); setNewPrice(''); setNewCost('0'); setNewStock('10'); setNewBarcode(''); setIsPromotion(false); setPromotionalPrice(''); setNewImage(null); setEditingId(null); setIsAdding(false);
+    setNewName(''); setNewPrice(''); setNewCost('0'); setNewStock('10'); setNewBarcode(''); setIsPromotion(false); setPromotionalPrice(''); setPromoPaymentMethod('all'); setNewImage(null); setEditingId(null); setIsAdding(false);
   };
 
   const handleEdit = (product: any) => {
@@ -37,6 +38,7 @@ export function AdminProducts({ productsList, onUpdate, migrateLocalProducts }: 
     setNewBarcode(product.barcode || '');
     setIsPromotion(product.isPromotion || false);
     setPromotionalPrice(product.promotionalPrice ? product.promotionalPrice.toString() : '');
+    setPromoPaymentMethod(product.promoPaymentMethod || 'all');
     setIsAdding(true);
     window.scrollTo({ top: 0, behavior: 'smooth' });
   };
@@ -68,6 +70,7 @@ export function AdminProducts({ productsList, onUpdate, migrateLocalProducts }: 
         cost: parseFloat(newCost) || 0,
         isPromotion: isPromotion,
         promotionalPrice: isPromotion ? parseFloat(promotionalPrice) : null,
+        promoPaymentMethod: isPromotion ? promoPaymentMethod : 'all',
         stock: parseInt(newStock) || 0,
         barcode: newBarcode
       };
@@ -132,9 +135,18 @@ export function AdminProducts({ productsList, onUpdate, migrateLocalProducts }: 
               </div>
               
               {isPromotion && (
-                <div>
-                  <label style={{ fontWeight: 'bold', color: '#e65100' }}>Preço Promocional (R$):</label>
-                  <input type="number" step="0.01" value={promotionalPrice} onChange={e => setPromotionalPrice(e.target.value)} required style={{ ...inputStyle, borderColor: '#ffcc80' }} />
+                <div style={{ display: 'flex', flexDirection: 'column', gap: '15px' }}>
+                  <div>
+                    <label style={{ fontWeight: 'bold', color: '#e65100', display: 'block', marginBottom: '5px' }}>Preço Promocional (R$):</label>
+                    <input type="number" step="0.01" value={promotionalPrice} onChange={e => setPromotionalPrice(e.target.value)} required style={{ ...inputStyle, borderColor: '#ffcc80' }} />
+                  </div>
+                  <div>
+                    <label style={{ fontWeight: 'bold', color: '#e65100', display: 'block', marginBottom: '5px' }}>Forma de Pagamento da Oferta:</label>
+                    <select value={promoPaymentMethod} onChange={e => setPromoPaymentMethod(e.target.value as any)} style={{ ...inputStyle, borderColor: '#ffcc80' }}>
+                      <option value="all">Aceitar todos os métodos (Cartão, Pix, Whats)</option>
+                      <option value="pix_only">Apenas PIX (Bloquear Cartão)</option>
+                    </select>
+                  </div>
                 </div>
               )}
             </div>

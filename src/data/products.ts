@@ -9,6 +9,7 @@ export interface Product {
   cost?: number;
   isPromotion?: boolean;
   promotionalPrice?: number;
+  promoPaymentMethod?: 'all' | 'pix_only';
 }
 
 export const products: Product[] = [
