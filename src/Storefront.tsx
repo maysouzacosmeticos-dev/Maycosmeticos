@@ -417,7 +417,7 @@ export default function Storefront() {
                   <span>Total:</span>
                   <span>R$ {cartTotal.toFixed(2)}</span>
                 </div>
-                <div className="cart-footer-buttons" style={{ paddingBottom: '80px' }}>
+                <div className="cart-footer-buttons">
                   {requiresPixOnly && (
                     <div style={{ background: '#fff3e0', border: '1px solid #ffb74d', color: '#e65100', padding: '10px', borderRadius: '8px', marginBottom: '15px', fontSize: '0.85rem', display: 'flex', alignItems: 'center', gap: '8px', lineHeight: '1.4' }}>
                       <span style={{ fontSize: '1.2rem' }}>⚠️</span>
@@ -448,7 +448,7 @@ export default function Storefront() {
                     className="checkout-btn" 
                     onClick={() => startCheckout('whatsapp')}
                     disabled={requiresPixOnly}
-                    style={{ background: requiresPixOnly ? '#e0e0e0' : 'var(--color-rose)', color: requiresPixOnly ? '#9e9e9e' : 'white', cursor: requiresPixOnly ? 'not-allowed' : 'pointer' }}
+                    style={requiresPixOnly ? { background: '#e0e0e0', color: '#9e9e9e', cursor: 'not-allowed' } : {}}
                   >
                     Combinar Pagamento via WhatsApp
                   </button>
