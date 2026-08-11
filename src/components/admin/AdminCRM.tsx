@@ -55,7 +55,7 @@ export function AdminCRM({ customers, sales, onUpdate }: Props) {
     const listString = phones.join(', ');
     navigator.clipboard.writeText(listString).then(() => {
       alert(`Lista com ${phones.length} números copiada para a área de transferência!\n\nCole no seu WhatsApp para disparos.`);
-    }).catch(err => {
+    }).catch(() => {
       alert("Erro ao copiar. Os números são:\n" + listString);
     });
   };

@@ -1,4 +1,4 @@
-import { TrendingUp, Users, ShoppingBag, AlertCircle, DollarSign, Activity } from 'lucide-react';
+import { TrendingUp, ShoppingBag, AlertCircle, DollarSign, Activity } from 'lucide-react';
 import { useState } from 'react';
 
 interface Props {
@@ -7,7 +7,7 @@ interface Props {
   visitsCount: number;
 }
 
-export function AdminDashboard({ sales, customers, visitsCount }: Props) {
+export function AdminDashboard({ sales, customers }: Props) {
   const [period, setPeriod] = useState<'hoje' | '7dias' | '15dias' | 'mes' | 'tudo'>('hoje');
 
   const filterDate = new Date();
