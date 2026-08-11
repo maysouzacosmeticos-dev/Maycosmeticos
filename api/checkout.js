@@ -129,7 +129,31 @@ export default async function handler(req, res) {
       infinitePayOrderId: method !== 'WhatsApp' ? saleId : null
     });
 
-    if (method === 'WhatsApp') {
+    // Notification Function
+    const sendTelegramNotification = async (message) => {
+      try {
+        const settingsSnap = await db.collection("settings").doc("store").get();
+        if (settingsSnap.exists) {
+          const { telegramToken, telegramChatId } = settingsSnap.data();
+          if (telegramToken && telegramChatId) {
+            await fetch(`https://api.telegram.org/bot${telegramToken}/sendMessage`, {
+              method: 'POST',
+              headers: { 'Content-Type': 'application/json' },
+              body: JSON.stringify({
+                chat_id: telegramChatId,
+                text: message,
+                parse_mode: 'Markdown'
+              })
+            });
+          }
+        }
+      } catch (e) {
+        console.error("Erro ao enviar notificação do Telegram:", e);
+      }
+    };
+
+    if (method === 'WhatsApp' || method === 'Pix') {
+      await sendTelegramNotification(`🔔 *Novo Pedido (${method})*\nCliente: ${customerInfo.name || 'Sem Nome'}\nTotal: R$ ${(cartTotalCalc/100).toFixed(2)}\n\n_O cliente deve enviar o comprovante em breve._`);
       // No need to contact InfinitePay
       return res.status(200).json({ success: true, saleId: saleId });
     }
@@ -158,6 +182,9 @@ export default async function handler(req, res) {
 
     const data = await response.json();
     
+    // Notify about InfinitePay generation
+    await sendTelegramNotification(`🛒 *Novo Carrinho (Cartão)*\nCliente: ${customerInfo.name || 'Sem Nome'}\nTotal: R$ ${(cartTotalCalc/100).toFixed(2)}\n\n_Aguardando pagamento via link._`);
+
     // We return both the InfinitePay data and the created sale ID
     return res.status(response.status).json({ ...data, saleId: saleId });
   } catch (error) {

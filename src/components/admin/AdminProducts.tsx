@@ -5,13 +5,11 @@ import { db } from '../../firebase';
 
 interface Props {
   productsList: any[];
-  pixKey: string;
-  setPixKey: (val: string) => void;
   onUpdate: () => void;
   migrateLocalProducts: () => void;
 }
 
-export function AdminProducts({ productsList, pixKey, setPixKey, onUpdate, migrateLocalProducts }: Props) {
+export function AdminProducts({ productsList, onUpdate, migrateLocalProducts }: Props) {
   const [isAdding, setIsAdding] = useState(false);
   const [editingId, setEditingId] = useState<string | null>(null);
 
@@ -85,35 +83,9 @@ export function AdminProducts({ productsList, pixKey, setPixKey, onUpdate, migra
       setUploading(false);
     }
   };
-
-  const handleSaveSettings = async () => {
-    try {
-      await setDoc(doc(db, "settings", "store"), { pixKey }, { merge: true });
-      alert("Configurações salvas!");
-    } catch(e) { alert("Erro ao salvar."); }
-  };
-
   return (
     <div style={{ display: 'flex', flexDirection: 'column', gap: '20px' }}>
       
-      {/* Settings Panel */}
-      <div style={{ background: '#fff', padding: '20px', borderRadius: '12px', boxShadow: 'var(--shadow-card)', display: 'flex', flexDirection: 'column', gap: '15px' }}>
-        <h3 style={{ margin: 0, display: 'flex', alignItems: 'center', gap: '10px' }}><Settings size={20}/> Configurações da Loja</h3>
-        <div>
-          <label style={{ fontWeight: 'bold', color: '#555', display: 'flex', alignItems: 'center', gap: '5px', marginBottom: '5px' }}><Smartphone size={16}/> Chave Pix (Para QR Code Automático)</label>
-          <div style={{ display: 'flex', gap: '10px' }}>
-            <input 
-              type="text" 
-              value={pixKey} 
-              onChange={e => setPixKey(e.target.value)} 
-              style={{ flex: 1, padding: '10px', borderRadius: '8px', border: '1px solid #ccc', fontSize: '16px' }} 
-              placeholder="Ex: CNPJ, Email ou Celular" 
-            />
-            <button onClick={handleSaveSettings} style={{ background: 'var(--color-gold)', color: 'white', border: 'none', padding: '0 20px', borderRadius: '8px', fontWeight: 'bold', cursor: 'pointer' }}>Salvar</button>
-          </div>
-        </div>
-      </div>
-
       {productsList.length === 0 && (
         <button onClick={migrateLocalProducts} style={{ padding: '15px', background: '#ff9800', color: '#fff', border: 'none', borderRadius: '12px', fontWeight: 'bold', cursor: 'pointer', boxShadow: 'var(--shadow-card)' }}>
           Mágica: Copiar 38 Produtos Iniciais para o Banco de Dados

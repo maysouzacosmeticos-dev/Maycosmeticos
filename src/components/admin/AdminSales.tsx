@@ -11,6 +11,8 @@ interface Props {
 export function AdminSales({ sales, onUpdate }: Props) {
   const [filter, setFilter] = useState<'todos' | 'pendente' | 'pago'>('todos');
   const [searchTerm, setSearchTerm] = useState('');
+  const [editingSaleId, setEditingSaleId] = useState<string | null>(null);
+  const [editedItems, setEditedItems] = useState<any[]>([]);
 
   const filteredSales = sales.filter(s => {
     const matchesStatus = filter === 'todos' ? true : s.status === filter;
@@ -41,11 +43,55 @@ export function AdminSales({ sales, onUpdate }: Props) {
     if (window.confirm('Deseja realmente apagar/cancelar esta venda do histórico?')) {
       try {
         await deleteDoc(doc(db, "sales", sale.id));
+        // Se já estava pago e cancelou, voltar estoque? Não vamos complicar agora, a menos que pedissem.
         onUpdate();
         alert('Venda apagada com sucesso.');
       } catch (e) {
         alert('Erro ao apagar venda.');
       }
+    }
+  };
+
+  const startEditing = (sale: any) => {
+    setEditingSaleId(sale.id);
+    setEditedItems([...sale.items]);
+  };
+
+  const removeEditedItem = (index: number) => {
+    setEditedItems(prev => prev.filter((_, i) => i !== index));
+  };
+
+  const saveEditedSale = async (sale: any) => {
+    if (editedItems.length === 0) {
+      alert("A nota não pode ficar vazia. Use o botão da lixeira para apagar a venda inteira.");
+      return;
+    }
+
+    try {
+      // Find removed items to restock IF the sale was already paid
+      if (sale.status === 'pago') {
+        const removedItems = sale.items.filter((oldItem: any) => 
+          !editedItems.some((newItem: any) => newItem.id === oldItem.id && newItem.quantity === oldItem.quantity)
+        );
+        // Basic restock for fully removed items
+        for (const item of removedItems) {
+           await updateDoc(doc(db, "products", item.id), { stock: increment(item.quantity) });
+        }
+      }
+
+      const newTotal = editedItems.reduce((acc, item) => acc + (item.price * item.quantity), 0);
+      
+      await updateDoc(doc(db, "sales", sale.id), {
+        items: editedItems,
+        total: newTotal,
+        amountPaid: sale.status === 'pago' ? newTotal : 0
+      });
+      
+      setEditingSaleId(null);
+      onUpdate();
+      alert("Nota atualizada com sucesso!");
+    } catch (e) {
+      alert("Erro ao salvar alterações.");
     }
   };
 
@@ -97,15 +143,21 @@ export function AdminSales({ sales, onUpdate }: Props) {
                   <button onClick={() => handleConfirmPayment(sale)} style={{ background: '#4CAF50', color: '#fff', border: 'none', padding: '10px 15px', borderRadius: '8px', cursor: 'pointer', fontWeight: 'bold', display: 'flex', alignItems: 'center', gap: '5px' }}>
                     <Clock size={18} /> Confirmar
                   </button>
+                  <button onClick={() => startEditing(sale)} style={{ background: '#e3f2fd', color: '#1565c0', border: 'none', padding: '10px', borderRadius: '8px', cursor: 'pointer' }}>
+                    <Edit2 size={18} />
+                  </button>
                   <button onClick={() => handleDeleteSale(sale)} style={{ background: '#ffebee', color: '#c62828', border: 'none', padding: '10px', borderRadius: '8px', cursor: 'pointer' }}>
                     <Trash2 size={18} />
                   </button>
                 </div>
               ) : (
-                <div style={{ display: 'flex', alignItems: 'center', gap: '15px' }}>
-                  <span style={{ display: 'flex', alignItems: 'center', gap: '5px', color: '#4CAF50', fontWeight: 'bold', padding: '10px' }}>
+                <div style={{ display: 'flex', alignItems: 'center', gap: '5px' }}>
+                  <span style={{ display: 'flex', alignItems: 'center', gap: '5px', color: '#4CAF50', fontWeight: 'bold', padding: '10px', marginRight: '10px' }}>
                     <CheckCircle size={18} /> Pago
                   </span>
+                  <button onClick={() => startEditing(sale)} style={{ background: '#e3f2fd', color: '#1565c0', border: 'none', padding: '10px', borderRadius: '8px', cursor: 'pointer' }}>
+                    <Edit2 size={18} />
+                  </button>
                   <button onClick={() => handleDeleteSale(sale)} style={{ background: '#ffebee', color: '#c62828', border: 'none', padding: '10px', borderRadius: '8px', cursor: 'pointer' }}>
                     <Trash2 size={18} />
                   </button>
@@ -114,14 +166,33 @@ export function AdminSales({ sales, onUpdate }: Props) {
             </div>
 
             <div style={{ marginTop: '15px', padding: '15px', background: '#f9f9f9', borderRadius: '8px' }}>
-              <h4 style={{ margin: '0 0 10px 0', fontSize: '0.9rem', color: '#555' }}>Itens do Pedido:</h4>
-              <ul style={{ margin: 0, paddingLeft: '20px', color: '#444' }}>
-                {sale.items?.map((item: any, i: number) => (
-                  <li key={i} style={{ marginBottom: '5px' }}>
-                    <strong>{item.quantity}x</strong> {item.name} <span style={{ color: '#888' }}>- R$ {(item.quantity * item.price).toFixed(2)}</span>
-                  </li>
-                ))}
+              <h4 style={{ margin: '0 0 10px 0', fontSize: '0.9rem', color: '#555' }}>
+                {editingSaleId === sale.id ? "Editando Itens do Pedido:" : "Itens do Pedido:"}
+              </h4>
+              
+              <ul style={{ margin: 0, paddingLeft: editingSaleId === sale.id ? '0' : '20px', color: '#444', listStyleType: editingSaleId === sale.id ? 'none' : 'disc' }}>
+                {editingSaleId === sale.id ? (
+                  editedItems.map((item: any, i: number) => (
+                    <li key={i} style={{ marginBottom: '8px', display: 'flex', justifyContent: 'space-between', alignItems: 'center', background: '#fff', padding: '8px', borderRadius: '5px', border: '1px solid #ddd' }}>
+                      <span><strong>{item.quantity}x</strong> {item.name} <span style={{ color: '#888' }}>- R$ {(item.quantity * item.price).toFixed(2)}</span></span>
+                      <button onClick={() => removeEditedItem(i)} style={{ background: '#ffebee', color: '#c62828', border: 'none', padding: '5px', borderRadius: '5px', cursor: 'pointer' }}><Trash2 size={16}/></button>
+                    </li>
+                  ))
+                ) : (
+                  sale.items?.map((item: any, i: number) => (
+                    <li key={i} style={{ marginBottom: '5px' }}>
+                      <strong>{item.quantity}x</strong> {item.name} <span style={{ color: '#888' }}>- R$ {(item.quantity * item.price).toFixed(2)}</span>
+                    </li>
+                  ))
+                )}
               </ul>
+              
+              {editingSaleId === sale.id && (
+                <div style={{ display: 'flex', gap: '10px', marginTop: '15px' }}>
+                  <button onClick={() => setEditingSaleId(null)} style={{ flex: 1, padding: '10px', background: '#ddd', color: '#333', border: 'none', borderRadius: '5px', cursor: 'pointer', fontWeight: 'bold' }}>Cancelar</button>
+                  <button onClick={() => saveEditedSale(sale)} style={{ flex: 1, padding: '10px', background: 'var(--color-gold)', color: '#fff', border: 'none', borderRadius: '5px', cursor: 'pointer', fontWeight: 'bold' }}>Salvar Alterações</button>
+                </div>
+              )}
               {sale.customerAddress && (
                 <p style={{ margin: '15px 0 0 0', fontSize: '0.9rem', color: '#666', borderTop: '1px solid #ddd', paddingTop: '10px' }}>
                   <strong>🏠 Endereço:</strong> {sale.customerAddress}

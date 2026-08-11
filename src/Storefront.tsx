@@ -23,7 +23,7 @@ export default function Storefront() {
   const [checkoutMode, setCheckoutMode] = useState<'cart' | 'customer' | 'pix' | 'cartao'>('cart');
   const [customerInfo, setCustomerInfo] = useState({ name: '', phone: '', address: '' });
   const [selectedPaymentMethod, setSelectedPaymentMethod] = useState<'pix' | 'cartao' | 'whatsapp' | null>(null);
-  const whatsappNumber = "5575988071066";
+  const [whatsappNumber, setWhatsappNumber] = useState("5575988071066");
 
   useEffect(() => {
     // 1. Fetch Products
@@ -48,7 +48,11 @@ export default function Storefront() {
     const fetchSettings = async () => {
       try {
         const docSnap = await getDoc(doc(db, "settings", "store"));
-        if (docSnap.exists()) setPixKey(docSnap.data().pixKey || '');
+        if (docSnap.exists()) {
+          const data = docSnap.data();
+          setPixKey(data.pixKey || '');
+          if (data.whatsapp) setWhatsappNumber(data.whatsapp);
+        }
       } catch(e) {}
     };
 
@@ -107,7 +111,7 @@ export default function Storefront() {
           quantity: item.quantity
         })),
         customerInfo: customerInfo,
-        method: selectedPaymentMethod === 'whatsapp' ? 'WhatsApp' : 'InfinitePay'
+        method: selectedPaymentMethod === 'whatsapp' ? 'WhatsApp' : (selectedPaymentMethod === 'pix' ? 'Pix' : 'InfinitePay')
       };
 
       const response = await fetch("/api/checkout", {
@@ -129,6 +133,13 @@ export default function Storefront() {
         handleWhatsAppOrder(false, true); // true = bypass customer check
         setCart([]);
         setIsCartOpen(false);
+        setIsCheckoutLoading(false);
+        return;
+      }
+
+      // Se for Pix Direto, a venda foi criada e vamos para a tela do QR Code
+      if (selectedPaymentMethod === 'pix') {
+        setCheckoutMode('pix');
         setIsCheckoutLoading(false);
         return;
       }
@@ -338,8 +349,18 @@ export default function Storefront() {
                     className="checkout-btn-infinitepay"
                     style={{ marginBottom: '10px', background: '#111', color: 'white' }}
                   >
-                    {isCheckoutLoading ? <span className="spinner-small"></span> : <>💳 Pagar via InfinitePay (Cartão ou Pix)</>}
+                    {isCheckoutLoading ? <span className="spinner-small"></span> : <>💳 Pagar com Cartão (InfinitePay)</>}
                   </button>
+                  
+                  {pixKey && (
+                    <button 
+                      onClick={() => startCheckout('pix')} 
+                      disabled={isCheckoutLoading}
+                      style={{ width: '100%', padding: '12px', background: '#10b981', color: 'white', border: 'none', borderRadius: '8px', fontWeight: 'bold', fontSize: '1rem', cursor: 'pointer', marginBottom: '10px' }}
+                    >
+                      {isCheckoutLoading && selectedPaymentMethod === 'pix' ? <span className="spinner-small"></span> : <><span style={{ marginRight: '5px' }}>💠</span> Pagar com Pix Direto</>}
+                    </button>
+                  )}
                   
                   <button className="checkout-btn" onClick={() => startCheckout('whatsapp')}>
                     Combinar Pagamento via WhatsApp

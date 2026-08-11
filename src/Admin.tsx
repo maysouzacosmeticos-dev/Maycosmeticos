@@ -10,7 +10,8 @@ import { AdminDashboard } from './components/admin/AdminDashboard';
 import { AdminSales } from './components/admin/AdminSales';
 import { AdminCRM } from './components/admin/AdminCRM';
 import { AdminProducts } from './components/admin/AdminProducts';
-import { LayoutDashboard, Users, Package, PackageSearch, LogOut } from 'lucide-react';
+import { AdminSettings } from './components/admin/AdminSettings';
+import { LayoutDashboard, Users, Package, PackageSearch, Settings, LogOut } from 'lucide-react';
 
 export default function Admin() {
   const [user, setUser] = useState<any>(null);
@@ -20,9 +21,8 @@ export default function Admin() {
   const [visitsCount, setVisitsCount] = useState<number>(0);
   const [sales, setSales] = useState<any[]>([]);
   const [customers, setCustomers] = useState<any[]>([]);
-  const [pixKey, setPixKey] = useState('');
   
-  const [activeTab, setActiveTab] = useState<'dashboard' | 'vendas' | 'crm' | 'produtos'>('dashboard');
+  const [activeTab, setActiveTab] = useState<'dashboard' | 'vendas' | 'crm' | 'produtos' | 'configuracoes'>('dashboard');
 
   useEffect(() => {
     const unsubscribe = onAuthStateChanged(auth, (currentUser) => {
@@ -57,11 +57,6 @@ export default function Admin() {
       const custData: any[] = [];
       custSnap.forEach(d => custData.push({ id: d.id, ...d.data() }));
       setCustomers(custData.sort((a,b) => (b.totalGasto || 0) - (a.totalGasto || 0)));
-
-      const settingsSnap = await getDoc(doc(db, "settings", "store"));
-      if (settingsSnap.exists()) {
-        setPixKey(settingsSnap.data().pixKey || '');
-      }
     } catch(e) {}
   };
 
@@ -123,6 +118,7 @@ export default function Admin() {
           <NavButton active={activeTab === 'vendas'} onClick={() => setActiveTab('vendas')} icon={<Package size={20}/>} label="Vendas" />
           <NavButton active={activeTab === 'crm'} onClick={() => setActiveTab('crm')} icon={<Users size={20}/>} label="Clientes" />
           <NavButton active={activeTab === 'produtos'} onClick={() => setActiveTab('produtos')} icon={<PackageSearch size={20}/>} label="Estoque" />
+          <NavButton active={activeTab === 'configuracoes'} onClick={() => setActiveTab('configuracoes')} icon={<Settings size={20}/>} label="Configurações" />
         </div>
 
         <div style={{ padding: '0 15px' }}>
@@ -137,7 +133,8 @@ export default function Admin() {
         {activeTab === 'dashboard' && <AdminDashboard sales={sales} customers={customers} visitsCount={visitsCount} />}
         {activeTab === 'vendas' && <AdminSales sales={sales} onUpdate={fetchSalesAndSettings} />}
         {activeTab === 'crm' && <AdminCRM customers={customers} sales={sales} onUpdate={fetchSalesAndSettings} />}
-        {activeTab === 'produtos' && <AdminProducts productsList={productsList} pixKey={pixKey} setPixKey={setPixKey} onUpdate={() => { fetchProducts(); fetchSalesAndSettings(); }} migrateLocalProducts={migrateLocalProducts} />}
+        {activeTab === 'produtos' && <AdminProducts productsList={productsList} onUpdate={() => { fetchProducts(); fetchSalesAndSettings(); }} migrateLocalProducts={migrateLocalProducts} />}
+        {activeTab === 'configuracoes' && <AdminSettings />}
       </div>
 
       {/* Mobile Styles injected directly */}

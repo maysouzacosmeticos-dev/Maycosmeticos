@@ -42,6 +42,29 @@ export default async function handler(req, res) {
     const saleId = payload.order_nsu || payload.metadata?.order_nsu || payload.id;
     const status = payload.status || payload.state; // e.g., 'approved', 'paid'
     
+    // Notification Function
+    const sendTelegramNotification = async (message) => {
+      try {
+        const settingsSnap = await db.collection("settings").doc("store").get();
+        if (settingsSnap.exists) {
+          const { telegramToken, telegramChatId } = settingsSnap.data();
+          if (telegramToken && telegramChatId) {
+            await fetch(`https://api.telegram.org/bot${telegramToken}/sendMessage`, {
+              method: 'POST',
+              headers: { 'Content-Type': 'application/json' },
+              body: JSON.stringify({
+                chat_id: telegramChatId,
+                text: message,
+                parse_mode: 'Markdown'
+              })
+            });
+          }
+        }
+      } catch (e) {
+        console.error("Erro ao enviar notificação do Telegram:", e);
+      }
+    };
+    
     // Check if it's a successful payment
     const isPaid = status === 'approved' || status === 'paid' || status === 'settled';
 
@@ -87,6 +110,7 @@ export default async function handler(req, res) {
       });
       
       console.log(`Sale ${saleId} marked as paid and stock deducted.`);
+      await sendTelegramNotification(`✅ *Pagamento Confirmado (Cartão)*\nO pedido \`${saleId}\` foi pago com sucesso.\nO estoque já foi atualizado.`);
     }
 
     // Always return 200 OK to the webhook provider so they don't retry

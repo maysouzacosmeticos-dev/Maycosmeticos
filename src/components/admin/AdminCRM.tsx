@@ -133,56 +133,72 @@ export function AdminCRM({ customers, sales, onUpdate }: Props) {
                 </div>
               </div>
 
-              {/* Expanded Details */}
+              {/* Expanded Details - Ficha do Cliente */}
               {isExpanded && (
-                <div style={{ padding: '20px', background: '#fafafa', display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(280px, 1fr))', gap: '20px' }}>
+                <div style={{ padding: '25px', background: '#f8fafc', display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(320px, 1fr))', gap: '30px', borderTop: '1px solid #eee' }}>
                   
-                  {/* Notes & Actions */}
-                  <div>
-                    <h4 style={{ margin: '0 0 10px 0', display: 'flex', alignItems: 'center', gap: '5px' }}><FileText size={18}/> Anotações de Relacionamento</h4>
-                    <textarea 
-                      value={editingNotes[customer.id] !== undefined ? editingNotes[customer.id] : (customer.notes || '')}
-                      onChange={(e) => handleNotesChange(customer.id, e.target.value)}
-                      placeholder="Ex: Cliente prefere cores escuras, faz aniversário em Maio..."
-                      style={{ width: '100%', minHeight: '100px', padding: '10px', borderRadius: '8px', border: '1px solid #ddd', fontFamily: 'inherit', resize: 'vertical' }}
-                    />
-                    <button 
-                      onClick={() => saveNotes(customer.id)}
-                      style={{ background: 'var(--color-gold)', color: '#fff', border: 'none', padding: '8px 15px', borderRadius: '8px', marginTop: '10px', cursor: 'pointer', fontWeight: 'bold' }}
-                    >
-                      Salvar Anotações
-                    </button>
+                  {/* Coluna Esquerda: Anotações & Financeiro */}
+                  <div style={{ display: 'flex', flexDirection: 'column', gap: '20px' }}>
+                    
+                    {/* Anotações */}
+                    <div style={{ background: '#fff', padding: '20px', borderRadius: '12px', border: '1px solid #e2e8f0', boxShadow: '0 2px 4px rgba(0,0,0,0.02)' }}>
+                      <h4 style={{ margin: '0 0 15px 0', display: 'flex', alignItems: 'center', gap: '8px', color: '#334155' }}>
+                        <FileText size={18} color="#64748b"/> Histórico e Preferências
+                      </h4>
+                      <textarea 
+                        value={editingNotes[customer.id] !== undefined ? editingNotes[customer.id] : (customer.notes || '')}
+                        onChange={(e) => handleNotesChange(customer.id, e.target.value)}
+                        placeholder="Ex: Cliente prefere tons pastéis, alergia a componente X, aniversário 12/05..."
+                        style={{ width: '100%', minHeight: '120px', padding: '12px', borderRadius: '8px', border: '1px solid #cbd5e1', fontFamily: 'inherit', resize: 'vertical', fontSize: '0.95rem', background: '#f8fafc', boxSizing: 'border-box' }}
+                      />
+                      <button 
+                        onClick={() => saveNotes(customer.id)}
+                        style={{ background: 'var(--color-gold)', color: '#fff', border: 'none', padding: '10px 20px', borderRadius: '8px', marginTop: '12px', cursor: 'pointer', fontWeight: 'bold', width: '100%' }}
+                      >
+                        Salvar Observações
+                      </button>
+                    </div>
 
+                    {/* Área Financeira (Só aparece se houver dívida) */}
                     {(customer.totalDivida || 0) > 0 && (
-                      <div style={{ marginTop: '20px', padding: '15px', background: '#fff', border: '1px solid #ffcdd2', borderRadius: '8px' }}>
-                        <h4 style={{ margin: '0 0 10px 0', color: '#c62828' }}>Dívida Pendente: R$ {(customer.totalDivida || 0).toFixed(2)}</h4>
+                      <div style={{ padding: '20px', background: '#fef2f2', border: '1px solid #fecaca', borderRadius: '12px', boxShadow: '0 2px 4px rgba(0,0,0,0.02)' }}>
+                        <h4 style={{ margin: '0 0 15px 0', color: '#991b1b', display: 'flex', alignItems: 'center', gap: '8px' }}>
+                          ⚠️ Dívida em Aberto: R$ {(customer.totalDivida || 0).toFixed(2)}
+                        </h4>
                         <div style={{ display: 'flex', gap: '10px' }}>
-                          <a href={`https://wa.me/${customer.phone?.replace(/\D/g,'')}?text=Olá ${customer.name?.split(' ')[0]}, vi aqui no meu sistema que ficou um valor pendente de R$ ${(customer.totalDivida||0).toFixed(2)}. Podemos acertar hoje?`} target="_blank" rel="noreferrer" style={{ background: '#25D366', color: '#fff', textDecoration: 'none', padding: '8px 15px', borderRadius: '8px', fontSize: '0.9rem', display: 'flex', alignItems: 'center', gap: '5px', flex: 1, justifyContent: 'center' }}>
-                            <MessageCircle size={16}/> Cobrar
+                          <a href={`https://wa.me/${customer.phone?.replace(/\D/g,'')}?text=Olá ${customer.name?.split(' ')[0]}, vi aqui no meu sistema que ficou um valor pendente de R$ ${(customer.totalDivida||0).toFixed(2)}. Podemos acertar hoje?`} target="_blank" rel="noreferrer" style={{ background: '#25D366', color: '#fff', textDecoration: 'none', padding: '10px', borderRadius: '8px', fontSize: '0.95rem', display: 'flex', alignItems: 'center', gap: '5px', flex: 1, justifyContent: 'center', fontWeight: 'bold' }}>
+                            <MessageCircle size={18}/> Cobrar no Whats
                           </a>
-                          <button onClick={() => quitarDivida(customer)} style={{ background: '#4CAF50', color: '#fff', border: 'none', padding: '8px 15px', borderRadius: '8px', cursor: 'pointer', flex: 1 }}>
-                            Quitar Dívida
+                          <button onClick={() => quitarDivida(customer)} style={{ background: '#059669', color: '#fff', border: 'none', padding: '10px', borderRadius: '8px', cursor: 'pointer', flex: 1, fontWeight: 'bold' }}>
+                            ✅ Registrar Pagamento
                           </button>
                         </div>
                       </div>
                     )}
                   </div>
 
-                  {/* Purchase History */}
-                  <div>
-                    <h4 style={{ margin: '0 0 10px 0' }}>Histórico de Compras ({customerSales.length})</h4>
-                    <div style={{ maxHeight: '300px', overflowY: 'auto', display: 'flex', flexDirection: 'column', gap: '10px', paddingRight: '5px' }}>
-                      {customerSales.length === 0 ? <p style={{ fontSize: '0.9rem', color: '#888' }}>Nenhuma compra registrada.</p> : customerSales.map(sale => (
-                        <div key={sale.id} style={{ background: '#fff', padding: '12px', borderRadius: '8px', border: '1px solid #eee', fontSize: '0.9rem' }}>
-                          <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '8px' }}>
-                            <strong>{new Date(sale.date).toLocaleDateString('pt-BR')}</strong>
+                  {/* Coluna Direita: Histórico de Compras */}
+                  <div style={{ background: '#fff', padding: '20px', borderRadius: '12px', border: '1px solid #e2e8f0', boxShadow: '0 2px 4px rgba(0,0,0,0.02)', display: 'flex', flexDirection: 'column' }}>
+                    <h4 style={{ margin: '0 0 15px 0', display: 'flex', justifyContent: 'space-between', alignItems: 'center', color: '#334155' }}>
+                      Pedidos Recentes 
+                      <span style={{ background: '#f1f5f9', color: '#64748b', padding: '2px 8px', borderRadius: '10px', fontSize: '0.8rem' }}>{customerSales.length} compras</span>
+                    </h4>
+                    
+                    <div style={{ maxHeight: '350px', overflowY: 'auto', display: 'flex', flexDirection: 'column', gap: '12px', paddingRight: '5px' }}>
+                      {customerSales.length === 0 ? <p style={{ fontSize: '0.9rem', color: '#94a3b8', textAlign: 'center', padding: '20px 0' }}>Nenhuma compra registrada ainda.</p> : customerSales.map(sale => (
+                        <div key={sale.id} style={{ background: '#f8fafc', padding: '15px', borderRadius: '8px', border: '1px solid #f1f5f9' }}>
+                          <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '10px', borderBottom: '1px solid #e2e8f0', paddingBottom: '8px' }}>
+                            <strong style={{ color: '#475569' }}>📅 {new Date(sale.date).toLocaleDateString('pt-BR')}</strong>
                             <span style={{ color: 'var(--color-gold-dark)', fontWeight: 'bold' }}>R$ {sale.total.toFixed(2)}</span>
                           </div>
-                          <ul style={{ margin: 0, paddingLeft: '15px', color: '#666', fontSize: '0.85rem' }}>
+                          <ul style={{ margin: 0, paddingLeft: '15px', color: '#64748b', fontSize: '0.9rem' }}>
                             {sale.items?.map((item: any, i: number) => (
-                              <li key={i}>{item.quantity}x {item.name}</li>
+                              <li key={i} style={{ marginBottom: '4px' }}>{item.quantity}x {item.name}</li>
                             ))}
                           </ul>
+                          <div style={{ marginTop: '10px', fontSize: '0.8rem', color: sale.status === 'pago' ? '#10b981' : '#f59e0b', fontWeight: 'bold', display: 'flex', justifyContent: 'flex-end' }}>
+                            {sale.status === 'pago' ? '✓ PAGO' : '⏳ PENDENTE'}
+                          </div>
                         </div>
                       ))}
                     </div>
