@@ -79,8 +79,9 @@ export default async function handler(req, res) {
       }
 
       const productData = productSnap.data();
-      const priceInCents = Math.round(productData.price * 100);
-      cartTotalCalc += (productData.price * parseInt(item.quantity, 10));
+      const effectivePrice = (productData.isPromotion && productData.promotionalPrice > 0) ? productData.promotionalPrice : productData.price;
+      const priceInCents = Math.round(effectivePrice * 100);
+      cartTotalCalc += (effectivePrice * parseInt(item.quantity, 10));
 
       validatedItems.push({
         id: item.id,
@@ -88,7 +89,8 @@ export default async function handler(req, res) {
         price: priceInCents,
         quantity: parseInt(item.quantity, 10),
         // For our own db storage:
-        originalPrice: productData.price 
+        originalPrice: effectivePrice,
+        cost: productData.cost || 0
       });
     }
 
@@ -115,6 +117,7 @@ export default async function handler(req, res) {
         id: vi.id,
         name: vi.description,
         price: vi.originalPrice,
+        cost: vi.cost,
         quantity: vi.quantity
       })),
       total: cartTotalCalc,

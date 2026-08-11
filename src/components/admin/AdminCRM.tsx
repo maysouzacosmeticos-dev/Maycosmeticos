@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { Users, Search, MessageCircle, FileText, ChevronDown, ChevronUp, Edit2, Trash2 } from 'lucide-react';
+import { Users, Search, MessageCircle, FileText, ChevronDown, ChevronUp, Edit2, Trash2, Star, Clock, AlertTriangle, Heart, Copy } from 'lucide-react';
 import { doc, updateDoc, increment, deleteDoc } from 'firebase/firestore';
 import { db } from '../../firebase';
 
@@ -14,10 +14,51 @@ export function AdminCRM({ customers, sales, onUpdate }: Props) {
   const [expandedId, setExpandedId] = useState<string | null>(null);
   const [editingNotes, setEditingNotes] = useState<{ [key: string]: string }>({});
 
-  const filteredCustomers = customers.filter(c => 
-    c.name?.toLowerCase().includes(searchTerm.toLowerCase()) || 
-    c.phone?.includes(searchTerm)
-  );
+  const [activeFilter, setActiveFilter] = useState<'all' | 'vip' | 'inactive' | 'debt' | 'interest'>('all');
+  const [inactiveDays, setInactiveDays] = useState(60);
+  const [interestProduct, setInterestProduct] = useState('');
+
+  const allProductsSold = Array.from(new Set(sales.flatMap(s => s.items?.map((i:any) => i.name) || []))).filter(Boolean);
+
+  const filteredCustomers = customers.filter(c => {
+    // Text Search
+    if (searchTerm && !c.name?.toLowerCase().includes(searchTerm.toLowerCase()) && !c.phone?.includes(searchTerm)) {
+      return false;
+    }
+    
+    // Smart Filters
+    if (activeFilter === 'vip') {
+      if ((c.totalGasto || 0) < 300) return false;
+    } 
+    else if (activeFilter === 'debt') {
+      if ((c.totalDivida || 0) <= 0) return false;
+    }
+    else if (activeFilter === 'inactive') {
+      const customerSales = sales.filter(s => s.customerPhone === c.phone || s.customerId === c.id);
+      if (customerSales.length === 0) return false;
+      const latestSale = customerSales.sort((a,b) => new Date(b.date).getTime() - new Date(a.date).getTime())[0];
+      const daysSincePurchase = (new Date().getTime() - new Date(latestSale.date).getTime()) / (1000 * 3600 * 24);
+      if (daysSincePurchase < inactiveDays) return false;
+    }
+    else if (activeFilter === 'interest' && interestProduct) {
+      const customerSales = sales.filter(s => s.customerPhone === c.phone || s.customerId === c.id);
+      const boughtProduct = customerSales.some(s => s.items?.some((i:any) => i.name === interestProduct));
+      if (!boughtProduct) return false;
+    }
+    
+    return true;
+  });
+
+  const handleExportList = () => {
+    if (filteredCustomers.length === 0) return alert("A lista está vazia!");
+    const phones = filteredCustomers.map(c => c.phone?.replace(/\D/g, '')).filter(p => p && p.length >= 10);
+    const listString = phones.join(', ');
+    navigator.clipboard.writeText(listString).then(() => {
+      alert(`Lista com ${phones.length} números copiada para a área de transferência!\n\nCole no seu WhatsApp para disparos.`);
+    }).catch(err => {
+      alert("Erro ao copiar. Os números são:\n" + listString);
+    });
+  };
 
   const toggleCustomer = (id: string) => {
     if (expandedId === id) setExpandedId(null);
@@ -96,6 +137,53 @@ export function AdminCRM({ customers, sales, onUpdate }: Props) {
             style={{ border: 'none', background: 'transparent', padding: '10px', width: '100%', outline: 'none' }}
           />
         </div>
+      </div>
+
+      {/* SMART FILTERS */}
+      <div style={{ background: '#f8fafc', padding: '15px', borderRadius: '12px', border: '1px solid #e2e8f0', display: 'flex', flexDirection: 'column', gap: '15px' }}>
+        <div style={{ display: 'flex', gap: '10px', flexWrap: 'wrap' }}>
+          <button onClick={() => setActiveFilter('all')} style={{ padding: '8px 15px', borderRadius: '20px', border: 'none', background: activeFilter === 'all' ? 'var(--color-gold)' : '#e2e8f0', color: activeFilter === 'all' ? 'white' : '#475569', cursor: 'pointer', fontWeight: 'bold' }}>
+            Todos
+          </button>
+          <button onClick={() => setActiveFilter('vip')} style={{ padding: '8px 15px', borderRadius: '20px', border: 'none', background: activeFilter === 'vip' ? '#eab308' : '#e2e8f0', color: activeFilter === 'vip' ? 'white' : '#475569', cursor: 'pointer', fontWeight: 'bold', display: 'flex', alignItems: 'center', gap: '5px' }}>
+            <Star size={16}/> VIPs (+R$ 300)
+          </button>
+          <button onClick={() => setActiveFilter('inactive')} style={{ padding: '8px 15px', borderRadius: '20px', border: 'none', background: activeFilter === 'inactive' ? '#64748b' : '#e2e8f0', color: activeFilter === 'inactive' ? 'white' : '#475569', cursor: 'pointer', fontWeight: 'bold', display: 'flex', alignItems: 'center', gap: '5px' }}>
+            <Clock size={16}/> Inativos
+          </button>
+          <button onClick={() => setActiveFilter('debt')} style={{ padding: '8px 15px', borderRadius: '20px', border: 'none', background: activeFilter === 'debt' ? '#ef4444' : '#e2e8f0', color: activeFilter === 'debt' ? 'white' : '#475569', cursor: 'pointer', fontWeight: 'bold', display: 'flex', alignItems: 'center', gap: '5px' }}>
+            <AlertTriangle size={16}/> Devedores
+          </button>
+          <button onClick={() => setActiveFilter('interest')} style={{ padding: '8px 15px', borderRadius: '20px', border: 'none', background: activeFilter === 'interest' ? '#ec4899' : '#e2e8f0', color: activeFilter === 'interest' ? 'white' : '#475569', cursor: 'pointer', fontWeight: 'bold', display: 'flex', alignItems: 'center', gap: '5px' }}>
+            <Heart size={16}/> Por Interesse
+          </button>
+        </div>
+
+        {activeFilter === 'inactive' && (
+          <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
+            <span>Mostrar clientes que não compram há mais de:</span>
+            <input type="number" value={inactiveDays} onChange={e => setInactiveDays(Number(e.target.value))} style={{ width: '60px', padding: '5px', borderRadius: '5px', border: '1px solid #ccc' }} />
+            <span>dias.</span>
+          </div>
+        )}
+
+        {activeFilter === 'interest' && (
+          <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
+            <span>Filtrar clientes que compraram:</span>
+            <select value={interestProduct} onChange={e => setInterestProduct(e.target.value)} style={{ padding: '5px', borderRadius: '5px', border: '1px solid #ccc', flex: 1, maxWidth: '300px' }}>
+              <option value="">Selecione um produto...</option>
+              {allProductsSold.map((p, i) => <option key={i} value={p as string}>{p as string}</option>)}
+            </select>
+          </div>
+        )}
+      </div>
+
+      {/* EXPORT BUTTON */}
+      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+        <p style={{ margin: 0, fontWeight: 'bold', color: '#64748b' }}>Mostrando {filteredCustomers.length} clientes</p>
+        <button onClick={handleExportList} style={{ background: '#25D366', color: 'white', border: 'none', padding: '10px 15px', borderRadius: '8px', cursor: 'pointer', fontWeight: 'bold', display: 'flex', alignItems: 'center', gap: '8px', boxShadow: '0 2px 5px rgba(37,211,102,0.3)' }}>
+          <Copy size={18}/> Copiar para Lista de Transmissão
+        </button>
       </div>
 
       <div style={{ display: 'flex', flexDirection: 'column', gap: '10px' }}>

@@ -16,21 +16,27 @@ export function AdminProducts({ productsList, onUpdate, migrateLocalProducts }: 
   // Form states
   const [newName, setNewName] = useState('');
   const [newPrice, setNewPrice] = useState('');
+  const [newCost, setNewCost] = useState('0');
   const [newStock, setNewStock] = useState('10');
   const [newBarcode, setNewBarcode] = useState('');
+  const [isPromotion, setIsPromotion] = useState(false);
+  const [promotionalPrice, setPromotionalPrice] = useState('');
   const [newImage, setNewImage] = useState<File | null>(null);
   const [uploading, setUploading] = useState(false);
 
   const resetForm = () => {
-    setNewName(''); setNewPrice(''); setNewStock('10'); setNewBarcode(''); setNewImage(null); setEditingId(null); setIsAdding(false);
+    setNewName(''); setNewPrice(''); setNewCost('0'); setNewStock('10'); setNewBarcode(''); setIsPromotion(false); setPromotionalPrice(''); setNewImage(null); setEditingId(null); setIsAdding(false);
   };
 
   const handleEdit = (product: any) => {
     setEditingId(product.id);
     setNewName(product.name);
     setNewPrice(product.price.toString());
+    setNewCost(product.cost ? product.cost.toString() : '0');
     setNewStock(product.stock ? product.stock.toString() : '0');
     setNewBarcode(product.barcode || '');
+    setIsPromotion(product.isPromotion || false);
+    setPromotionalPrice(product.promotionalPrice ? product.promotionalPrice.toString() : '');
     setIsAdding(true);
     window.scrollTo({ top: 0, behavior: 'smooth' });
   };
@@ -59,6 +65,9 @@ export function AdminProducts({ productsList, onUpdate, migrateLocalProducts }: 
       const productData: any = {
         name: newName,
         price: parseFloat(newPrice),
+        cost: parseFloat(newCost) || 0,
+        isPromotion: isPromotion,
+        promotionalPrice: isPromotion ? parseFloat(promotionalPrice) : null,
         stock: parseInt(newStock) || 0,
         barcode: newBarcode
       };
@@ -103,7 +112,11 @@ export function AdminProducts({ productsList, onUpdate, migrateLocalProducts }: 
             </div>
             <div style={{ display: 'flex', gap: '15px' }}>
               <div style={{ flex: 1 }}>
-                <label style={{ fontWeight: 'bold' }}>Preço (R$):</label>
+                <label style={{ fontWeight: 'bold' }}>Custo (R$):</label>
+                <input type="number" step="0.01" value={newCost} onChange={e => setNewCost(e.target.value)} required style={inputStyle} />
+              </div>
+              <div style={{ flex: 1 }}>
+                <label style={{ fontWeight: 'bold' }}>Preço Venda (R$):</label>
                 <input type="number" step="0.01" value={newPrice} onChange={e => setNewPrice(e.target.value)} required style={inputStyle} />
               </div>
               <div style={{ flex: 1 }}>
@@ -111,6 +124,21 @@ export function AdminProducts({ productsList, onUpdate, migrateLocalProducts }: 
                 <input type="number" value={newStock} onChange={e => setNewStock(e.target.value)} style={inputStyle} />
               </div>
             </div>
+
+            <div style={{ background: '#fff3e0', padding: '15px', borderRadius: '8px', border: '1px solid #ffe0b2' }}>
+              <div style={{ display: 'flex', alignItems: 'center', gap: '10px', marginBottom: isPromotion ? '15px' : '0' }}>
+                <input type="checkbox" id="promoToggle" checked={isPromotion} onChange={e => setIsPromotion(e.target.checked)} style={{ width: '20px', height: '20px', cursor: 'pointer' }} />
+                <label htmlFor="promoToggle" style={{ fontWeight: 'bold', color: '#e65100', cursor: 'pointer', margin: 0 }}>🔥 Ativar Promoção / Oferta Relâmpago?</label>
+              </div>
+              
+              {isPromotion && (
+                <div>
+                  <label style={{ fontWeight: 'bold', color: '#e65100' }}>Preço Promocional (R$):</label>
+                  <input type="number" step="0.01" value={promotionalPrice} onChange={e => setPromotionalPrice(e.target.value)} required style={{ ...inputStyle, borderColor: '#ffcc80' }} />
+                </div>
+              )}
+            </div>
+
             <div>
               <label style={{ fontWeight: 'bold' }}>Código de Barras (Opcional):</label>
               <input type="text" value={newBarcode} onChange={e => setNewBarcode(e.target.value)} style={inputStyle} />
@@ -142,9 +170,29 @@ export function AdminProducts({ productsList, onUpdate, migrateLocalProducts }: 
           <div key={product.id} style={{ background: '#fff', borderRadius: '12px', boxShadow: 'var(--shadow-card)', padding: '15px', display: 'flex', alignItems: 'center', gap: '15px' }}>
             <img src={product.image} alt={product.name} style={{ width: '70px', height: '70px', objectFit: 'cover', borderRadius: '8px' }} />
             <div style={{ flex: 1 }}>
-              <h4 style={{ margin: '0 0 5px 0', fontSize: '1rem' }}>{product.name}</h4>
-              <p style={{ margin: 0, color: 'var(--color-gold-dark)', fontWeight: 'bold', fontSize: '1.1rem' }}>R$ {product.price.toFixed(2)}</p>
-              <p style={{ margin: 0, color: '#888', fontSize: '0.85rem' }}>Estoque: {product.stock || 0} un.</p>
+              <h4 style={{ margin: '0 0 5px 0', fontSize: '1rem', display: 'flex', alignItems: 'center', gap: '8px' }}>
+                {product.name}
+                {product.isPromotion && <span style={{ background: '#ffebee', color: '#c62828', padding: '2px 8px', borderRadius: '12px', fontSize: '0.7rem', fontWeight: 'bold' }}>OFERTA</span>}
+              </h4>
+              
+              {product.isPromotion ? (
+                <div>
+                  <span style={{ textDecoration: 'line-through', color: '#999', fontSize: '0.9rem', marginRight: '8px' }}>R$ {product.price.toFixed(2)}</span>
+                  <span style={{ color: '#c62828', fontWeight: 'bold', fontSize: '1.2rem' }}>R$ {product.promotionalPrice?.toFixed(2)}</span>
+                </div>
+              ) : (
+                <p style={{ margin: 0, color: 'var(--color-gold-dark)', fontWeight: 'bold', fontSize: '1.1rem' }}>R$ {product.price.toFixed(2)}</p>
+              )}
+              
+              {product.cost > 0 && (
+                <div style={{ background: '#f5f7fa', padding: '6px', borderRadius: '6px', marginTop: '5px', fontSize: '0.8rem' }}>
+                  <span style={{ color: '#666' }}>Custo: R$ {product.cost.toFixed(2)}</span><br/>
+                  <span style={{ color: '#2e7d32', fontWeight: 'bold' }}>
+                    Lucro: R$ {(product.price - product.cost).toFixed(2)} ({Math.round(((product.price - product.cost) / product.price) * 100)}%)
+                  </span>
+                </div>
+              )}
+              <p style={{ margin: '5px 0 0 0', color: '#888', fontSize: '0.85rem' }}>Estoque: {product.stock || 0} un.</p>
             </div>
             <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
               <button onClick={() => handleEdit(product)} style={{ background: '#e3f2fd', color: '#1565c0', border: 'none', padding: '8px', borderRadius: '8px', cursor: 'pointer' }}><Edit2 size={16}/></button>

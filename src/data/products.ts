@@ -6,6 +6,9 @@ export interface Product {
   description: string;
   barcode?: string;
   stock?: number;
+  cost?: number;
+  isPromotion?: boolean;
+  promotionalPrice?: number;
 }
 
 export const products: Product[] = [

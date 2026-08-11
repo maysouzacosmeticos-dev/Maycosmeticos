@@ -24,6 +24,7 @@ export default function Storefront() {
   const [customerInfo, setCustomerInfo] = useState({ name: '', phone: '', address: '' });
   const [selectedPaymentMethod, setSelectedPaymentMethod] = useState<'pix' | 'cartao' | 'whatsapp' | null>(null);
   const [whatsappNumber, setWhatsappNumber] = useState("5575988071066");
+  const [showPromosOnly, setShowPromosOnly] = useState(false);
 
   useEffect(() => {
     // 1. Fetch Products
@@ -182,7 +183,9 @@ export default function Storefront() {
     setCart((prev) => prev.filter((item) => item.product.id !== productId));
   };
 
-  const cartTotal = cart.reduce((total, item) => total + item.product.price * item.quantity, 0);
+  const getEffectivePrice = (product: Product) => (product.isPromotion && product.promotionalPrice) ? product.promotionalPrice : product.price;
+
+  const cartTotal = cart.reduce((total, item) => total + getEffectivePrice(item.product) * item.quantity, 0);
   const cartItemCount = cart.reduce((count, item) => count + item.quantity, 0);
 
   useEffect(() => {
@@ -212,7 +215,8 @@ export default function Storefront() {
     
     let message = "Olá May Cosméticos! Gostaria de fazer o seguinte pedido:\n\n";
     cart.forEach(item => {
-      message += `${item.quantity}x ${item.product.name} (R$ ${item.product.price.toFixed(2)})\n`;
+      const pPrice = getEffectivePrice(item.product);
+      message += `${item.quantity}x ${item.product.name} (R$ ${pPrice.toFixed(2)})\n`;
     });
     message += `\n*Total: R$ ${cartTotal.toFixed(2)}*\n`;
     
@@ -236,8 +240,44 @@ export default function Storefront() {
     return <div style={{textAlign:'center', padding: '50px'}}>Carregando Vitrine...</div>;
   }
 
+  const promoProducts = storeProducts.filter(p => p.isPromotion);
+  const displayProducts = showPromosOnly ? promoProducts : storeProducts;
+
+  const renderProductCard = (product: Product) => (
+    <div key={product.id} className="product-card">
+      <div className="product-image-container" style={{ position: 'relative' }}>
+        {product.isPromotion && (
+          <div className="promo-badge">
+            <span style={{ fontSize: '1rem' }}>⚡</span> OFERTA RELÂMPAGO
+          </div>
+        )}
+        <img src={product.image} alt={product.name} loading="lazy" />
+      </div>
+      <div className="product-info">
+        <h3>{product.name}</h3>
+        {product.isPromotion ? (
+          <p className="price" style={{ display: 'flex', alignItems: 'center', gap: '10px', justifyContent: 'center' }}>
+            <span style={{ textDecoration: 'line-through', color: '#999', fontSize: '1rem', fontWeight: 'normal' }}>R$ {product.price.toFixed(2)}</span>
+            <span style={{ color: '#e60000', fontSize: '1.4rem' }}>R$ {product.promotionalPrice?.toFixed(2)}</span>
+          </p>
+        ) : (
+          <p className="price">R$ {product.price.toFixed(2)}</p>
+        )}
+        {product.stock !== undefined && product.stock <= 0 ? (
+          <button className="add-to-cart-btn" style={{ background: '#999', cursor: 'not-allowed' }} disabled>
+            Esgotado
+          </button>
+        ) : (
+          <button className="add-to-cart-btn" onClick={() => addToCart(product)}>
+            Adicionar
+          </button>
+        )}
+      </div>
+    </div>
+  );
+
   return (
-    <div className="app-container">
+    <div className="storefront-container">
       {/* HEADER PRINCIPAL */}
       <header className="header">
         <div className="header-content">
@@ -277,27 +317,38 @@ export default function Storefront() {
         </div>
 
         {/* VITRINE DE PRODUTOS */}
+        {!showPromosOnly && promoProducts.length > 0 && (
+          <div className="promo-hero-banner">
+            <h2>Ofertas Relâmpago! ⚡</h2>
+            <p>Aproveite nossa queima de estoque exclusiva antes que acabe.</p>
+            <button className="promo-hero-btn" onClick={() => setShowPromosOnly(true)}>
+              Ver Ofertas
+            </button>
+          </div>
+        )}
+
+        {showPromosOnly && (
+          <div style={{ textAlign: 'center', marginBottom: '2rem' }}>
+            <h2 style={{ color: '#e60000', fontSize: '2rem', display: 'flex', justifyContent: 'center', alignItems: 'center', gap: '10px', marginBottom: '1rem' }}>
+              ⚡ Ofertas Especiais
+            </h2>
+            <button 
+              onClick={() => setShowPromosOnly(false)} 
+              style={{ padding: '8px 20px', background: 'var(--color-rose)', border: 'none', borderRadius: '20px', color: 'white', fontWeight: 'bold', cursor: 'pointer', boxShadow: 'var(--shadow-card)' }}
+            >
+              ← Voltar para Todos os Produtos
+            </button>
+          </div>
+        )}
+
+        {!showPromosOnly && (
+          <h2 style={{ textAlign: 'center', marginBottom: '1.5rem', color: 'var(--color-gold-dark)', fontSize: '1.8rem' }}>
+            Nossos Produtos
+          </h2>
+        )}
+
         <section className="products-grid">
-          {storeProducts.map((product) => (
-            <div key={product.id} className="product-card">
-              <div className="product-image-container">
-                <img src={product.image} alt={product.name} loading="lazy" />
-              </div>
-              <div className="product-info">
-                <h3>{product.name}</h3>
-                <p className="price">R$ {product.price.toFixed(2)}</p>
-                {product.stock !== undefined && product.stock <= 0 ? (
-                  <button className="add-to-cart-btn" style={{ background: '#999', cursor: 'not-allowed' }} disabled>
-                    Esgotado
-                  </button>
-                ) : (
-                  <button className="add-to-cart-btn" onClick={() => addToCart(product)}>
-                    Adicionar
-                  </button>
-                )}
-              </div>
-            </div>
-          ))}
+          {displayProducts.map(renderProductCard)}
         </section>
       </main>
 
@@ -321,7 +372,13 @@ export default function Storefront() {
                     <img src={item.product.image} alt={item.product.name} />
                     <div className="item-details">
                       <h4>{item.product.name}</h4>
-                      <p>R$ {item.product.price.toFixed(2)}</p>
+                      {item.product.isPromotion ? (
+                        <p style={{ color: '#e60000', fontWeight: 'bold' }}>
+                          R$ {item.product.promotionalPrice?.toFixed(2)} <span style={{ textDecoration: 'line-through', color: '#999', fontSize: '0.8rem', fontWeight: 'normal' }}>R$ {item.product.price.toFixed(2)}</span>
+                        </p>
+                      ) : (
+                        <p>R$ {item.product.price.toFixed(2)}</p>
+                      )}
                       <div className="quantity-controls">
                         <button onClick={() => updateQuantity(item.product.id, -1)}>-</button>
                         <span>{item.quantity}</span>
