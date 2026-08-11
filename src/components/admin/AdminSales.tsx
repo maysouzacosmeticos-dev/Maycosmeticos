@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { Package, Clock, CheckCircle, Trash2 } from 'lucide-react';
+import { Package, Clock, CheckCircle, Trash2, Edit2 } from 'lucide-react';
 import { doc, updateDoc, increment, deleteDoc } from 'firebase/firestore';
 import { db } from '../../firebase';
 

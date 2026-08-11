@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { PackageSearch, Plus, Edit2, Trash2, Settings, Smartphone } from 'lucide-react';
+import { PackageSearch, Plus, Edit2, Trash2 } from 'lucide-react';
 import { doc, setDoc, deleteDoc } from 'firebase/firestore';
 import { db } from '../../firebase';
 
