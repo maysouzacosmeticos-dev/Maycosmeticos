@@ -141,18 +141,19 @@ export default function Admin() {
       <style dangerouslySetInnerHTML={{__html: `
         @media (max-width: 768px) {
           .admin-sidebar { display: none !important; }
-          .admin-content { margin-left: 0 !important; padding: 15px !important; padding-bottom: 150px !important; }
+          .admin-content { margin-left: 0 !important; margin-top: 55px !important; padding: 15px !important; padding-bottom: 150px !important; }
         }
       `}} />
 
       <BottomNav />
       
       {/* Mobile Top Nav */}
-      <div className="mobile-admin-nav" style={{ display: 'flex', overflowX: 'auto', background: '#fff', padding: '10px', gap: '10px', position: 'fixed', top: 0, left: 0, right: 0, zIndex: 10, borderBottom: '1px solid #ddd', boxShadow: 'var(--shadow-card)' }}>
+      <div className="mobile-admin-nav" style={{ display: 'flex', overflowX: 'auto', background: '#fff', padding: '10px', gap: '10px', position: 'fixed', top: 0, left: 0, right: 0, zIndex: 100, borderBottom: '1px solid #ddd', boxShadow: 'var(--shadow-card)' }}>
         <MobileNavButton active={activeTab === 'dashboard'} onClick={() => setActiveTab('dashboard')} icon={<LayoutDashboard size={18}/>} label="Dashboard" />
         <MobileNavButton active={activeTab === 'vendas'} onClick={() => setActiveTab('vendas')} icon={<Package size={18}/>} label="Vendas" />
         <MobileNavButton active={activeTab === 'crm'} onClick={() => setActiveTab('crm')} icon={<Users size={18}/>} label="Clientes" />
         <MobileNavButton active={activeTab === 'produtos'} onClick={() => setActiveTab('produtos')} icon={<PackageSearch size={18}/>} label="Estoque" />
+        <MobileNavButton active={activeTab === 'configuracoes'} onClick={() => setActiveTab('configuracoes')} icon={<Settings size={18}/>} label="Configurações" />
         <style dangerouslySetInnerHTML={{__html: `
           @media (min-width: 769px) { .mobile-admin-nav { display: none !important; } }
         `}} />

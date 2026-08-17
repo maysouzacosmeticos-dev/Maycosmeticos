@@ -208,27 +208,27 @@ export function AdminProducts({ productsList, onUpdate, migrateLocalProducts }: 
       )}
 
       {/* Product List */}
-      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(300px, 1fr))', gap: '15px' }}>
+      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(280px, 1fr))', gap: '12px' }}>
         {filteredProducts.map(product => (
-          <div key={product.id} style={{ background: '#fff', borderRadius: '12px', boxShadow: 'var(--shadow-card)', padding: '15px', display: 'flex', alignItems: 'center', gap: '15px' }}>
-            <img src={product.image} alt={product.name} style={{ width: '70px', height: '70px', objectFit: 'cover', borderRadius: '8px' }} />
-            <div style={{ flex: 1 }}>
-              <h4 style={{ margin: '0 0 5px 0', fontSize: '1rem', display: 'flex', alignItems: 'center', gap: '8px' }}>
+          <div key={product.id} style={{ background: '#fff', borderRadius: '12px', boxShadow: 'var(--shadow-card)', padding: '12px', display: 'flex', alignItems: 'center', gap: '10px' }}>
+            <img src={product.image} alt={product.name} style={{ width: '60px', height: '60px', objectFit: 'cover', borderRadius: '8px', flexShrink: 0 }} />
+            <div style={{ flex: 1, minWidth: 0 }}>
+              <h4 style={{ margin: '0 0 4px 0', fontSize: '0.95rem', display: 'flex', alignItems: 'center', gap: '6px', flexWrap: 'wrap', wordBreak: 'break-word' }}>
                 {product.name}
-                {product.isPromotion && <span style={{ background: '#ffebee', color: '#c62828', padding: '2px 8px', borderRadius: '12px', fontSize: '0.7rem', fontWeight: 'bold' }}>OFERTA</span>}
+                {product.isPromotion && <span style={{ background: '#ffebee', color: '#c62828', padding: '2px 6px', borderRadius: '10px', fontSize: '0.65rem', fontWeight: 'bold' }}>OFERTA</span>}
               </h4>
               
               {product.isPromotion ? (
                 <div>
-                  <span style={{ textDecoration: 'line-through', color: '#999', fontSize: '0.9rem', marginRight: '8px' }}>R$ {product.price.toFixed(2)}</span>
-                  <span style={{ color: '#c62828', fontWeight: 'bold', fontSize: '1.2rem' }}>R$ {product.promotionalPrice?.toFixed(2)}</span>
+                  <span style={{ textDecoration: 'line-through', color: '#999', fontSize: '0.85rem', marginRight: '6px' }}>R$ {product.price.toFixed(2)}</span>
+                  <span style={{ color: '#c62828', fontWeight: 'bold', fontSize: '1.1rem' }}>R$ {product.promotionalPrice?.toFixed(2)}</span>
                 </div>
               ) : (
-                <p style={{ margin: 0, color: 'var(--color-gold-dark)', fontWeight: 'bold', fontSize: '1.1rem' }}>R$ {product.price.toFixed(2)}</p>
+                <p style={{ margin: 0, color: 'var(--color-gold-dark)', fontWeight: 'bold', fontSize: '1rem' }}>R$ {product.price.toFixed(2)}</p>
               )}
               
               {product.cost > 0 && (
-                <div style={{ background: '#f5f7fa', padding: '6px', borderRadius: '6px', marginTop: '5px', fontSize: '0.8rem' }}>
+                <div style={{ background: '#f5f7fa', padding: '4px 6px', borderRadius: '6px', marginTop: '4px', fontSize: '0.75rem' }}>
                   <span style={{ color: '#666' }}>Custo: R$ {product.cost.toFixed(2)}</span><br/>
                   <span style={{ color: '#2e7d32', fontWeight: 'bold' }}>
                     Lucro: R$ {(product.price - product.cost).toFixed(2)} ({Math.round(((product.price - product.cost) / product.price) * 100)}%)
@@ -237,32 +237,34 @@ export function AdminProducts({ productsList, onUpdate, migrateLocalProducts }: 
               )}
               
               {/* Quick stock controller */}
-              <div style={{ display: 'flex', alignItems: 'center', gap: '6px', marginTop: '8px' }}>
-                <span style={{ fontSize: '0.85rem', color: '#555', fontWeight: 'bold' }}>Estoque:</span>
-                <button
-                  type="button"
-                  onClick={() => handleQuickStockUpdate(product.id, (product.stock || 0) - 1)}
-                  style={{ width: '28px', height: '28px', borderRadius: '6px', border: '1px solid #ccc', background: '#f5f5f5', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', fontWeight: 'bold', fontSize: '14px' }}
-                >
-                  -
-                </button>
-                <input
-                  type="number"
-                  value={product.stock ?? 0}
-                  onChange={(e) => handleQuickStockUpdate(product.id, parseInt(e.target.value) || 0)}
-                  style={{ width: '52px', textAlign: 'center', padding: '4px 2px', borderRadius: '6px', border: '1px solid #ccc', fontSize: '0.9rem', fontWeight: 'bold' }}
-                />
-                <button
-                  type="button"
-                  onClick={() => handleQuickStockUpdate(product.id, (product.stock || 0) + 1)}
-                  style={{ width: '28px', height: '28px', borderRadius: '6px', border: '1px solid #ccc', background: '#f5f5f5', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', fontWeight: 'bold', fontSize: '14px' }}
-                >
-                  +
-                </button>
-                <span style={{ fontSize: '0.8rem', color: '#888' }}>un.</span>
+              <div style={{ display: 'flex', alignItems: 'center', gap: '4px', marginTop: '6px', flexWrap: 'wrap' }}>
+                <span style={{ fontSize: '0.8rem', color: '#555', fontWeight: 'bold' }}>Estoque:</span>
+                <div style={{ display: 'inline-flex', alignItems: 'center', gap: '3px' }}>
+                  <button
+                    type="button"
+                    onClick={() => handleQuickStockUpdate(product.id, (product.stock || 0) - 1)}
+                    style={{ width: '28px', height: '28px', borderRadius: '6px', border: '1px solid #ccc', background: '#f5f5f5', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', fontWeight: 'bold', fontSize: '15px' }}
+                  >
+                    -
+                  </button>
+                  <input
+                    type="number"
+                    value={product.stock ?? 0}
+                    onChange={(e) => handleQuickStockUpdate(product.id, parseInt(e.target.value) || 0)}
+                    style={{ width: '48px', textAlign: 'center', padding: '4px 2px', borderRadius: '6px', border: '1px solid #ccc', fontSize: '0.85rem', fontWeight: 'bold' }}
+                  />
+                  <button
+                    type="button"
+                    onClick={() => handleQuickStockUpdate(product.id, (product.stock || 0) + 1)}
+                    style={{ width: '28px', height: '28px', borderRadius: '6px', border: '1px solid #ccc', background: '#f5f5f5', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', fontWeight: 'bold', fontSize: '15px' }}
+                  >
+                    +
+                  </button>
+                </div>
+                <span style={{ fontSize: '0.75rem', color: '#888' }}>un.</span>
               </div>
             </div>
-            <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
+            <div style={{ display: 'flex', flexDirection: 'column', gap: '6px', flexShrink: 0 }}>
               <button onClick={() => handleEdit(product)} title="Editar produto completo" style={{ background: '#e3f2fd', color: '#1565c0', border: 'none', padding: '8px', borderRadius: '8px', cursor: 'pointer' }}><Edit2 size={16}/></button>
               <button onClick={() => handleDelete(product.id)} title="Excluir produto" style={{ background: '#ffebee', color: '#c62828', border: 'none', padding: '8px', borderRadius: '8px', cursor: 'pointer' }}><Trash2 size={16}/></button>
             </div>
