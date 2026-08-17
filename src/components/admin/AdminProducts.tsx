@@ -1,6 +1,6 @@
 import { useState } from 'react';
-import { PackageSearch, Plus, Edit2, Trash2 } from 'lucide-react';
-import { doc, setDoc, deleteDoc } from 'firebase/firestore';
+import { PackageSearch, Plus, Edit2, Trash2, Search } from 'lucide-react';
+import { doc, setDoc, deleteDoc, updateDoc } from 'firebase/firestore';
 import { db } from '../../firebase';
 
 interface Props {
@@ -12,6 +12,7 @@ interface Props {
 export function AdminProducts({ productsList, onUpdate, migrateLocalProducts }: Props) {
   const [isAdding, setIsAdding] = useState(false);
   const [editingId, setEditingId] = useState<string | null>(null);
+  const [searchTerm, setSearchTerm] = useState('');
 
   // Form states
   const [newName, setNewName] = useState('');
@@ -34,7 +35,7 @@ export function AdminProducts({ productsList, onUpdate, migrateLocalProducts }: 
     setNewName(product.name);
     setNewPrice(product.price.toString());
     setNewCost(product.cost ? product.cost.toString() : '0');
-    setNewStock(product.stock ? product.stock.toString() : '0');
+    setNewStock(product.stock !== undefined ? product.stock.toString() : '0');
     setNewBarcode(product.barcode || '');
     setIsPromotion(product.isPromotion || false);
     setPromotionalPrice(product.promotionalPrice ? product.promotionalPrice.toString() : '');
@@ -50,13 +51,23 @@ export function AdminProducts({ productsList, onUpdate, migrateLocalProducts }: 
     }
   };
 
+  const handleQuickStockUpdate = async (id: string, newStockVal: number) => {
+    const validStock = Math.max(0, newStockVal);
+    try {
+      await updateDoc(doc(db, "products", id), { stock: validStock });
+      onUpdate();
+    } catch (error) {
+      console.error("Erro ao atualizar estoque:", error);
+      alert("Erro ao atualizar estoque no banco de dados.");
+    }
+  };
+
   const handleSaveProduct = async (e: React.FormEvent) => {
     e.preventDefault();
     setUploading(true);
     try {
       let imageUrl = "";
       if (newImage) {
-        // Upload logic here (keeping it simple for the split, using the existing approach from Admin.tsx)
         const formData = new FormData();
         formData.append("image", newImage);
         const res = await fetch(`https://api.imgbb.com/1/upload?key=9a39f45b0c7c056e4ff6d0cd696c1681`, { method: "POST", body: formData });
@@ -95,6 +106,12 @@ export function AdminProducts({ productsList, onUpdate, migrateLocalProducts }: 
       setUploading(false);
     }
   };
+
+  const filteredProducts = productsList.filter(product =>
+    product.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
+    (product.barcode && product.barcode.includes(searchTerm))
+  );
+
   return (
     <div style={{ display: 'flex', flexDirection: 'column', gap: '20px' }}>
       
@@ -168,17 +185,31 @@ export function AdminProducts({ productsList, onUpdate, migrateLocalProducts }: 
           </form>
         </div>
       ) : (
-        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-          <h2 style={{ margin: 0, display: 'flex', alignItems: 'center', gap: '10px' }}><PackageSearch /> Estoque ({productsList.length})</h2>
-          <button onClick={() => setIsAdding(true)} style={{ background: 'var(--color-gold)', color: 'white', border: 'none', padding: '10px 15px', borderRadius: '8px', fontWeight: 'bold', cursor: 'pointer', display: 'flex', alignItems: 'center', gap: '5px' }}>
-            <Plus size={18} /> Novo Produto
-          </button>
+        <div style={{ display: 'flex', flexDirection: 'column', gap: '15px' }}>
+          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: '10px' }}>
+            <h2 style={{ margin: 0, display: 'flex', alignItems: 'center', gap: '10px' }}><PackageSearch /> Estoque ({productsList.length})</h2>
+            <button onClick={() => setIsAdding(true)} style={{ background: 'var(--color-gold)', color: 'white', border: 'none', padding: '10px 15px', borderRadius: '8px', fontWeight: 'bold', cursor: 'pointer', display: 'flex', alignItems: 'center', gap: '5px' }}>
+              <Plus size={18} /> Novo Produto
+            </button>
+          </div>
+
+          {/* Search bar */}
+          <div style={{ position: 'relative', width: '100%' }}>
+            <Search size={18} style={{ position: 'absolute', left: '12px', top: '50%', transform: 'translateY(-50%)', color: '#888' }} />
+            <input
+              type="text"
+              placeholder="Buscar produto por nome ou código de barras..."
+              value={searchTerm}
+              onChange={e => setSearchTerm(e.target.value)}
+              style={{ ...inputStyle, paddingLeft: '38px', marginTop: 0 }}
+            />
+          </div>
         </div>
       )}
 
       {/* Product List */}
       <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(300px, 1fr))', gap: '15px' }}>
-        {productsList.map(product => (
+        {filteredProducts.map(product => (
           <div key={product.id} style={{ background: '#fff', borderRadius: '12px', boxShadow: 'var(--shadow-card)', padding: '15px', display: 'flex', alignItems: 'center', gap: '15px' }}>
             <img src={product.image} alt={product.name} style={{ width: '70px', height: '70px', objectFit: 'cover', borderRadius: '8px' }} />
             <div style={{ flex: 1 }}>
@@ -204,11 +235,36 @@ export function AdminProducts({ productsList, onUpdate, migrateLocalProducts }: 
                   </span>
                 </div>
               )}
-              <p style={{ margin: '5px 0 0 0', color: '#888', fontSize: '0.85rem' }}>Estoque: {product.stock || 0} un.</p>
+              
+              {/* Quick stock controller */}
+              <div style={{ display: 'flex', alignItems: 'center', gap: '6px', marginTop: '8px' }}>
+                <span style={{ fontSize: '0.85rem', color: '#555', fontWeight: 'bold' }}>Estoque:</span>
+                <button
+                  type="button"
+                  onClick={() => handleQuickStockUpdate(product.id, (product.stock || 0) - 1)}
+                  style={{ width: '28px', height: '28px', borderRadius: '6px', border: '1px solid #ccc', background: '#f5f5f5', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', fontWeight: 'bold', fontSize: '14px' }}
+                >
+                  -
+                </button>
+                <input
+                  type="number"
+                  value={product.stock ?? 0}
+                  onChange={(e) => handleQuickStockUpdate(product.id, parseInt(e.target.value) || 0)}
+                  style={{ width: '52px', textAlign: 'center', padding: '4px 2px', borderRadius: '6px', border: '1px solid #ccc', fontSize: '0.9rem', fontWeight: 'bold' }}
+                />
+                <button
+                  type="button"
+                  onClick={() => handleQuickStockUpdate(product.id, (product.stock || 0) + 1)}
+                  style={{ width: '28px', height: '28px', borderRadius: '6px', border: '1px solid #ccc', background: '#f5f5f5', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', fontWeight: 'bold', fontSize: '14px' }}
+                >
+                  +
+                </button>
+                <span style={{ fontSize: '0.8rem', color: '#888' }}>un.</span>
+              </div>
             </div>
             <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
-              <button onClick={() => handleEdit(product)} style={{ background: '#e3f2fd', color: '#1565c0', border: 'none', padding: '8px', borderRadius: '8px', cursor: 'pointer' }}><Edit2 size={16}/></button>
-              <button onClick={() => handleDelete(product.id)} style={{ background: '#ffebee', color: '#c62828', border: 'none', padding: '8px', borderRadius: '8px', cursor: 'pointer' }}><Trash2 size={16}/></button>
+              <button onClick={() => handleEdit(product)} title="Editar produto completo" style={{ background: '#e3f2fd', color: '#1565c0', border: 'none', padding: '8px', borderRadius: '8px', cursor: 'pointer' }}><Edit2 size={16}/></button>
+              <button onClick={() => handleDelete(product.id)} title="Excluir produto" style={{ background: '#ffebee', color: '#c62828', border: 'none', padding: '8px', borderRadius: '8px', cursor: 'pointer' }}><Trash2 size={16}/></button>
             </div>
           </div>
         ))}
