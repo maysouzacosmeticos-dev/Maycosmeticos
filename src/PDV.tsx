@@ -408,11 +408,11 @@ export default function PDV() {
       {/* Sticky Bottom Actions */}
       <div style={{ position: 'fixed', bottom: '60px', left: 0, right: 0, background: 'white', padding: '15px', borderTop: '1px solid #ddd', boxShadow: '0 -4px 15px rgba(0,0,0,0.05)', borderTopLeftRadius: '20px', borderTopRightRadius: '20px', zIndex: 5 }}>
         
-        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: '6px', marginBottom: '15px' }}>
-          <button onClick={() => setPaymentMethod('Pix')} style={{ ...chipStyle, background: paymentMethod === 'Pix' ? 'var(--color-gold)' : '#eee', color: paymentMethod === 'Pix' ? 'white' : '#333', fontSize: '0.8rem' }}><Smartphone size={15} /> Pix</button>
-          <button onClick={() => setPaymentMethod('Cartão')} style={{ ...chipStyle, background: paymentMethod === 'Cartão' ? 'var(--color-gold)' : '#eee', color: paymentMethod === 'Cartão' ? 'white' : '#333', fontSize: '0.8rem' }}><CreditCard size={15} /> Cartão</button>
-          <button onClick={() => setPaymentMethod('Dinheiro')} style={{ ...chipStyle, background: paymentMethod === 'Dinheiro' ? 'var(--color-gold)' : '#eee', color: paymentMethod === 'Dinheiro' ? 'white' : '#333', fontSize: '0.8rem' }}><Banknote size={15} /> Dinheiro</button>
-          <button onClick={() => setPaymentMethod('A Prazo')} style={{ ...chipStyle, background: paymentMethod === 'A Prazo' ? '#e65100' : '#eee', color: paymentMethod === 'A Prazo' ? 'white' : '#333', fontSize: '0.8rem' }}><Calendar size={15} /> A Prazo</button>
+        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: '6px', marginBottom: '12px' }}>
+          <button onClick={() => setPaymentMethod('Pix')} style={{ ...chipStyle, background: paymentMethod === 'Pix' ? 'var(--color-gold)' : '#f0f0f0', color: paymentMethod === 'Pix' ? 'white' : '#333' }}><Smartphone size={14} /> Pix</button>
+          <button onClick={() => setPaymentMethod('Cartão')} style={{ ...chipStyle, background: paymentMethod === 'Cartão' ? 'var(--color-gold)' : '#f0f0f0', color: paymentMethod === 'Cartão' ? 'white' : '#333' }}><CreditCard size={14} /> Cartão</button>
+          <button onClick={() => setPaymentMethod('Dinheiro')} style={{ ...chipStyle, background: paymentMethod === 'Dinheiro' ? 'var(--color-gold)' : '#f0f0f0', color: paymentMethod === 'Dinheiro' ? 'white' : '#333' }}><Banknote size={14} /> Dinheiro</button>
+          <button onClick={() => setPaymentMethod('A Prazo')} style={{ ...chipStyle, background: paymentMethod === 'A Prazo' ? '#e65100' : '#f0f0f0', color: paymentMethod === 'A Prazo' ? 'white' : '#333' }}><Calendar size={14} /> A Prazo</button>
         </div>
 
         {paymentMethod === 'A Prazo' && (
