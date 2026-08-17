@@ -90,6 +90,29 @@ export function AdminCRM({ customers, sales, onUpdate }: Props) {
     }
   };
 
+  const baixarParcialDivida = async (c: any) => {
+    const dividaAtual = c.totalDivida || 0;
+    if (dividaAtual <= 0) return;
+
+    const inputVal = window.prompt(`Informe o valor da BAIXA PARCIAL para ${c.name} (Dívida em aberto: R$ ${dividaAtual.toFixed(2)}):`, dividaAtual.toFixed(2));
+    if (!inputVal) return;
+
+    const val = Math.min(dividaAtual, Math.max(0, parseFloat(inputVal) || 0));
+    if (val <= 0) return;
+
+    try {
+      const novaDivida = Math.max(0, dividaAtual - val);
+      await updateDoc(doc(db, "customers", c.id), { 
+        totalDivida: novaDivida, 
+        totalGasto: increment(val) 
+      });
+      onUpdate();
+      alert(`Abatimento de R$ ${val.toFixed(2)} registrado! Dívida restante: R$ ${novaDivida.toFixed(2)}.`);
+    } catch (e) {
+      alert("Erro ao dar baixa parcial.");
+    }
+  };
+
   const handleDeleteCustomer = async (id: string) => {
     if(window.confirm('Apagar permanentemente este cliente e suas anotações?')) {
       try {
@@ -253,12 +276,15 @@ export function AdminCRM({ customers, sales, onUpdate }: Props) {
                         <h4 style={{ margin: '0 0 15px 0', color: '#991b1b', display: 'flex', alignItems: 'center', gap: '8px' }}>
                           ⚠️ Dívida em Aberto: R$ {(customer.totalDivida || 0).toFixed(2)}
                         </h4>
-                        <div style={{ display: 'flex', gap: '10px' }}>
-                          <a href={`https://wa.me/${customer.phone?.replace(/\D/g,'')}?text=Olá ${customer.name?.split(' ')[0]}, vi aqui no meu sistema que ficou um valor pendente de R$ ${(customer.totalDivida||0).toFixed(2)}. Podemos acertar hoje?`} target="_blank" rel="noreferrer" style={{ background: '#25D366', color: '#fff', textDecoration: 'none', padding: '10px', borderRadius: '8px', fontSize: '0.95rem', display: 'flex', alignItems: 'center', gap: '5px', flex: 1, justifyContent: 'center', fontWeight: 'bold' }}>
-                            <MessageCircle size={18}/> Cobrar no Whats
+                        <div style={{ display: 'flex', gap: '8px', flexWrap: 'wrap' }}>
+                          <a href={`https://wa.me/${customer.phone?.replace(/\D/g,'')}?text=Olá ${customer.name?.split(' ')[0]}, vi aqui no meu sistema que ficou um valor pendente de R$ ${(customer.totalDivida||0).toFixed(2)}. Podemos acertar hoje?`} target="_blank" rel="noreferrer" style={{ background: '#25D366', color: '#fff', textDecoration: 'none', padding: '10px 12px', borderRadius: '8px', fontSize: '0.85rem', display: 'flex', alignItems: 'center', gap: '5px', flex: '1 1 120px', justifyContent: 'center', fontWeight: 'bold' }}>
+                            <MessageCircle size={16}/> Cobrar no Whats
                           </a>
-                          <button onClick={() => quitarDivida(customer)} style={{ background: '#059669', color: '#fff', border: 'none', padding: '10px', borderRadius: '8px', cursor: 'pointer', flex: 1, fontWeight: 'bold' }}>
-                            ✅ Registrar Pagamento
+                          <button onClick={() => quitarDivida(customer)} style={{ background: '#059669', color: '#fff', border: 'none', padding: '10px 12px', borderRadius: '8px', cursor: 'pointer', flex: '1 1 110px', fontWeight: 'bold', fontSize: '0.85rem' }}>
+                            ✅ Quitar Tudo
+                          </button>
+                          <button onClick={() => baixarParcialDivida(customer)} style={{ background: '#ed6c02', color: '#fff', border: 'none', padding: '10px 12px', borderRadius: '8px', cursor: 'pointer', flex: '1 1 110px', fontWeight: 'bold', fontSize: '0.85rem' }}>
+                            💵 Baixa Parcial
                           </button>
                         </div>
                       </div>

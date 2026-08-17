@@ -7,7 +7,7 @@ import { Html5Qrcode } from 'html5-qrcode';
 import { generatePixPayload } from './utils/generatePix';
 import { Receipt } from './components/Receipt';
 import { shareReceiptToWhatsApp } from './utils/generateReceipt';
-import { Search, Camera, Trash2, Plus, Minus, CreditCard, Banknote, Smartphone } from 'lucide-react';
+import { Search, Camera, Trash2, Plus, Minus, CreditCard, Banknote, Smartphone, Calendar } from 'lucide-react';
 import { QRCodeSVG } from 'qrcode.react';
 import { BottomNav } from './components/BottomNav';
 
@@ -16,7 +16,7 @@ export default function PDV() {
   const [cart, setCart] = useState<{ product: Product; quantity: number }[]>([]);
   const [customerName, setCustomerName] = useState('');
   const [searchTerm, setSearchTerm] = useState('');
-  const [paymentMethod, setPaymentMethod] = useState<'Pix' | 'Cartão' | 'Dinheiro'>('Pix');
+  const [paymentMethod, setPaymentMethod] = useState<'Pix' | 'Cartão' | 'Dinheiro' | 'A Prazo'>('Pix');
   const [installments, setInstallments] = useState(1);
   const [partialPayment, setPartialPayment] = useState<string>('');
   const [discount, setDiscount] = useState<string>('');
@@ -109,64 +109,59 @@ export default function PDV() {
     return () => window.removeEventListener('keydown', handleKeyDown);
   }, [products]);
 
-  const handleScan = (barcode: string) => {
-    const matchedProduct = products.find(p => p.barcode === barcode);
-    if (matchedProduct) {
-      addToCart(matchedProduct);
-      alert(`Adicionado: ${matchedProduct.name}`);
+  const handleScan = (scannedCode: string) => {
+    const matched = products.find(p => p.barcode === scannedCode);
+    if (matched) {
+      addToCart(matched);
+      const audio = new Audio('https://assets.mixkit.co/active_storage/sfx/2869/2869-preview.mp3');
+      audio.play().catch(() => {});
     } else {
-      alert("Produto não encontrado pelo código: " + barcode);
+      alert(`Produto com código ${scannedCode} não encontrado.`);
     }
   };
 
   const startCameraScanner = () => {
     setIsScannerOpen(true);
     setTimeout(() => {
-      try {
-        scannerRef.current = new Html5Qrcode("reader");
-        scannerRef.current.start(
-          { facingMode: "environment" },
-          { fps: 10, qrbox: { width: 250, height: 150 } },
-          (decodedText: string) => {
-            handleScan(decodedText);
-            stopCameraScanner();
-          },
-          () => {} // ignore frame errors
-        ).catch((err: any) => {
-          console.error("Camera error:", err);
-          alert("Erro ao abrir a câmera. Verifique as permissões do navegador.");
-          setIsScannerOpen(false);
-        });
-      } catch (e) {
-        console.error("Setup error:", e);
-      }
+      const html5QrcodeScanner = new Html5Qrcode("reader");
+      scannerRef.current = html5QrcodeScanner;
+      html5QrcodeScanner.start(
+        { facingMode: "environment" },
+        { fps: 10, qrbox: { width: 250, height: 250 } },
+        (decodedText) => {
+          handleScan(decodedText);
+          stopCameraScanner();
+        },
+        () => {}
+      ).catch(err => {
+        console.error("Erro ao iniciar câmera:", err);
+        alert("Não foi possível acessar a câmera.");
+        setIsScannerOpen(false);
+      });
     }, 300);
   };
 
   const stopCameraScanner = () => {
     if (scannerRef.current) {
-      try {
-        scannerRef.current.stop().then(() => {
-          scannerRef.current?.clear();
-        }).catch((e: any) => console.log("Failed to stop scanner", e));
-      } catch (e) {
-        scannerRef.current?.clear();
-      }
+      scannerRef.current.stop().then(() => {
+        scannerRef.current = null;
+        setIsScannerOpen(false);
+      }).catch(err => console.error(err));
+    } else {
+      setIsScannerOpen(false);
     }
-    setIsScannerOpen(false);
   };
 
   const addToCart = (product: Product) => {
     if (product.stock !== undefined && product.stock <= 0) {
-      alert("Este produto está esgotado no momento.");
-      return;
+      alert("Atenção: Este produto está sem estoque!");
     }
+
     setCart(prev => {
       const existing = prev.find(item => item.product.id === product.id);
       if (existing) {
         if (product.stock !== undefined && existing.quantity >= product.stock) {
           alert(`Temos apenas ${product.stock} unidades em estoque.`);
-          return prev;
         }
         return prev.map(item => item.product.id === product.id ? { ...item, quantity: item.quantity + 1 } : item);
       }
@@ -214,13 +209,21 @@ export default function PDV() {
   const handleFinalize = async () => {
     if (cart.length === 0) return;
 
+    if (paymentMethod === 'A Prazo' && !customerName.trim()) {
+      alert("Para vendas A Prazo / Crediário, é obrigatório selecionar ou digitar o Nome do Cliente!");
+      return;
+    }
+
     try {
-      const amountPaid = partialPayment ? parseFloat(partialPayment) : total;
+      const amountPaid = paymentMethod === 'A Prazo' 
+        ? (partialPayment ? parseFloat(partialPayment) : 0)
+        : (partialPayment ? parseFloat(partialPayment) : total);
+      
       const debt = Math.max(0, total - amountPaid);
-      const status = debt > 0 ? 'parcial' : 'pago';
+      const status = debt > 0 ? (amountPaid > 0 ? 'parcial' : 'pendente') : 'pago';
       let customerId = "";
 
-      // Salvar Cliente VIP
+      // Salvar ou Atualizar Cliente
       if (customerName.trim()) {
         const existing = customersList.find(c => c.name.toLowerCase() === customerName.trim().toLowerCase());
         if (existing) {
@@ -264,8 +267,13 @@ export default function PDV() {
         await updateDoc(productRef, { stock: increment(-item.quantity) });
       }
 
+      if (paymentMethod === 'A Prazo') {
+        alert(`Venda A Prazo (Crediário) registrada com sucesso! Dívida do cliente: R$ ${debt.toFixed(2)}.`);
+      }
+
     } catch (e) {
       console.error("Erro ao registrar venda:", e);
+      alert("Erro ao registrar venda no banco de dados.");
     }
 
     await shareReceiptToWhatsApp('receipt-container', customerName || 'Cliente');
@@ -281,6 +289,7 @@ export default function PDV() {
     setDiscount('');
     setPixPayload('');
     fetchProducts();
+    fetchCustomers();
   };
 
   return (
@@ -399,11 +408,18 @@ export default function PDV() {
       {/* Sticky Bottom Actions */}
       <div style={{ position: 'fixed', bottom: '60px', left: 0, right: 0, background: 'white', padding: '15px', borderTop: '1px solid #ddd', boxShadow: '0 -4px 15px rgba(0,0,0,0.05)', borderTopLeftRadius: '20px', borderTopRightRadius: '20px', zIndex: 5 }}>
         
-        <div style={{ display: 'flex', gap: '10px', marginBottom: '15px' }}>
-          <button onClick={() => setPaymentMethod('Pix')} style={{ ...chipStyle, background: paymentMethod === 'Pix' ? 'var(--color-gold)' : '#eee', color: paymentMethod === 'Pix' ? 'white' : '#333' }}><Smartphone size={16} /> Pix</button>
-          <button onClick={() => setPaymentMethod('Cartão')} style={{ ...chipStyle, background: paymentMethod === 'Cartão' ? 'var(--color-gold)' : '#eee', color: paymentMethod === 'Cartão' ? 'white' : '#333' }}><CreditCard size={16} /> Cartão</button>
-          <button onClick={() => setPaymentMethod('Dinheiro')} style={{ ...chipStyle, background: paymentMethod === 'Dinheiro' ? 'var(--color-gold)' : '#eee', color: paymentMethod === 'Dinheiro' ? 'white' : '#333' }}><Banknote size={16} /> Dinheiro</button>
+        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: '6px', marginBottom: '15px' }}>
+          <button onClick={() => setPaymentMethod('Pix')} style={{ ...chipStyle, background: paymentMethod === 'Pix' ? 'var(--color-gold)' : '#eee', color: paymentMethod === 'Pix' ? 'white' : '#333', fontSize: '0.8rem' }}><Smartphone size={15} /> Pix</button>
+          <button onClick={() => setPaymentMethod('Cartão')} style={{ ...chipStyle, background: paymentMethod === 'Cartão' ? 'var(--color-gold)' : '#eee', color: paymentMethod === 'Cartão' ? 'white' : '#333', fontSize: '0.8rem' }}><CreditCard size={15} /> Cartão</button>
+          <button onClick={() => setPaymentMethod('Dinheiro')} style={{ ...chipStyle, background: paymentMethod === 'Dinheiro' ? 'var(--color-gold)' : '#eee', color: paymentMethod === 'Dinheiro' ? 'white' : '#333', fontSize: '0.8rem' }}><Banknote size={15} /> Dinheiro</button>
+          <button onClick={() => setPaymentMethod('A Prazo')} style={{ ...chipStyle, background: paymentMethod === 'A Prazo' ? '#e65100' : '#eee', color: paymentMethod === 'A Prazo' ? 'white' : '#333', fontSize: '0.8rem' }}><Calendar size={15} /> A Prazo</button>
         </div>
+
+        {paymentMethod === 'A Prazo' && (
+          <div style={{ background: '#fff3e0', border: '1px solid #ffe0b2', color: '#e65100', padding: '10px 12px', borderRadius: '8px', marginBottom: '15px', fontSize: '0.85rem' }}>
+            📌 <strong>Venda A Prazo (Crediário):</strong> Selecione ou digite o Nome do Cliente. Se houver entrada, informe em "Valor Pago (Parcial)".
+          </div>
+        )}
 
         {paymentMethod === 'Cartão' && (
           <div style={{ marginBottom: '15px', display: 'flex', alignItems: 'center', gap: '10px' }}>
