@@ -131,7 +131,7 @@ export default function Admin() {
       {/* Main Content */}
       <div className="admin-content" style={{ flex: 1, marginLeft: '250px', padding: '30px', paddingBottom: '100px', maxWidth: '1000px' }}>
         {activeTab === 'dashboard' && <AdminDashboard sales={sales} customers={customers} visitsCount={visitsCount} />}
-        {activeTab === 'vendas' && <AdminSales sales={sales} onUpdate={fetchSalesAndSettings} />}
+        {activeTab === 'vendas' && <AdminSales sales={sales} productsList={productsList} onUpdate={fetchSalesAndSettings} />}
         {activeTab === 'crm' && <AdminCRM customers={customers} sales={sales} onUpdate={fetchSalesAndSettings} />}
         {activeTab === 'produtos' && <AdminProducts productsList={productsList} onUpdate={() => { fetchProducts(); fetchSalesAndSettings(); }} migrateLocalProducts={migrateLocalProducts} />}
         {activeTab === 'configuracoes' && <AdminSettings />}

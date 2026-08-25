@@ -1,18 +1,25 @@
 import { useState } from 'react';
-import { Package, CheckCircle, Trash2, Edit2, DollarSign } from 'lucide-react';
+import { Package, CheckCircle, Trash2, Edit2, DollarSign, Plus } from 'lucide-react';
 import { doc, updateDoc, increment, deleteDoc } from 'firebase/firestore';
 import { db } from '../../firebase';
 
 interface Props {
   sales: any[];
+  productsList?: any[];
   onUpdate: () => void;
 }
 
-export function AdminSales({ sales, onUpdate }: Props) {
+export function AdminSales({ sales, productsList = [], onUpdate }: Props) {
   const [filter, setFilter] = useState<'todos' | 'crediario' | 'pendente' | 'parcial' | 'pago'>('todos');
   const [searchTerm, setSearchTerm] = useState('');
+  
   const [editingSaleId, setEditingSaleId] = useState<string | null>(null);
   const [editedItems, setEditedItems] = useState<any[]>([]);
+  const [editedCustomerName, setEditedCustomerName] = useState('');
+  const [editedCustomerPhone, setEditedCustomerPhone] = useState('');
+  const [editedCustomerAddress, setEditedCustomerAddress] = useState('');
+  const [editedMethod, setEditedMethod] = useState('');
+  const [selectedProductToAdd, setSelectedProductToAdd] = useState('');
 
   const filteredSales = sales.filter(s => {
     let matchesStatus = true;
@@ -109,42 +116,105 @@ export function AdminSales({ sales, onUpdate }: Props) {
 
   const startEditing = (sale: any) => {
     setEditingSaleId(sale.id);
-    setEditedItems([...sale.items]);
+    setEditedItems([...(sale.items || [])]);
+    setEditedCustomerName(sale.customerName || '');
+    setEditedCustomerPhone(sale.customerPhone || '');
+    setEditedCustomerAddress(sale.customerAddress || '');
+    setEditedMethod(sale.method || 'Pix');
+    setSelectedProductToAdd('');
+  };
+
+  const updateItemQuantity = (index: number, delta: number) => {
+    setEditedItems(prev => prev.map((item, i) => {
+      if (i === index) {
+        const newQ = item.quantity + delta;
+        return newQ > 0 ? { ...item, quantity: newQ } : item;
+      }
+      return item;
+    }));
   };
 
   const removeEditedItem = (index: number) => {
     setEditedItems(prev => prev.filter((_, i) => i !== index));
   };
 
+  const handleAddItemToOrder = () => {
+    if (!selectedProductToAdd) return;
+    const product = productsList.find(p => p.id === selectedProductToAdd);
+    if (!product) return;
+
+    const existingIndex = editedItems.findIndex(i => i.id === product.id);
+    if (existingIndex >= 0) {
+      updateItemQuantity(existingIndex, 1);
+    } else {
+      setEditedItems(prev => [...prev, {
+        id: product.id,
+        name: product.name,
+        price: product.isPromotion && product.promotionalPrice ? product.promotionalPrice : product.price,
+        quantity: 1
+      }]);
+    }
+    setSelectedProductToAdd('');
+  };
+
   const saveEditedSale = async (sale: any) => {
     if (editedItems.length === 0) {
-      alert("A nota não pode ficar vazia. Use o botão da lixeira para apagar a venda inteira.");
+      alert("O pedido não pode ficar vazio. Se desejar cancelar o pedido inteiro, use o botão de excluir.");
       return;
     }
 
     try {
-      if (sale.status === 'pago') {
-        const removedItems = sale.items.filter((oldItem: any) => 
-          !editedItems.some((newItem: any) => newItem.id === oldItem.id && newItem.quantity === oldItem.quantity)
-        );
-        for (const item of removedItems) {
-           await updateDoc(doc(db, "products", item.id), { stock: increment(item.quantity) });
+      const qtyMap = new Map<string, number>();
+
+      for (const oldItem of (sale.items || [])) {
+        if (oldItem.id) {
+          qtyMap.set(oldItem.id, (qtyMap.get(oldItem.id) || 0) - oldItem.quantity);
         }
       }
 
+      for (const newItem of editedItems) {
+        if (newItem.id) {
+          qtyMap.set(newItem.id, (qtyMap.get(newItem.id) || 0) + newItem.quantity);
+        }
+      }
+
+      for (const [productId, delta] of qtyMap.entries()) {
+        if (delta !== 0) {
+          await updateDoc(doc(db, "products", productId), { stock: increment(-delta) });
+        }
+      }
+
+      const oldTotal = sale.total || 0;
       const newTotal = editedItems.reduce((acc, item) => acc + (item.price * item.quantity), 0);
-      
+      const totalDelta = newTotal - oldTotal;
+
+      const amountPaidSoFar = sale.amountPaid !== undefined ? sale.amountPaid : (sale.status === 'pago' ? oldTotal : 0);
+      const remaining = Math.max(0, newTotal - amountPaidSoFar);
+      const newStatus = remaining <= 0 ? 'pago' : (amountPaidSoFar > 0 ? 'parcial' : 'pendente');
+
       await updateDoc(doc(db, "sales", sale.id), {
         items: editedItems,
         total: newTotal,
-        amountPaid: sale.status === 'pago' ? newTotal : (sale.amountPaid || 0)
+        status: newStatus,
+        amountPaid: sale.status === 'pago' ? newTotal : amountPaidSoFar,
+        customerName: editedCustomerName.trim(),
+        customerPhone: editedCustomerPhone.trim(),
+        customerAddress: editedCustomerAddress.trim(),
+        method: editedMethod
       });
-      
+
+      if (sale.customerId && totalDelta !== 0) {
+        await updateDoc(doc(db, "customers", sale.customerId), {
+          totalDivida: increment(totalDelta)
+        });
+      }
+
       setEditingSaleId(null);
       onUpdate();
-      alert("Nota atualizada com sucesso!");
+      alert(`Pedido de ${editedCustomerName || 'Cliente'} atualizado com sucesso! Novo Total: R$ ${newTotal.toFixed(2)}`);
     } catch (e) {
-      alert("Erro ao salvar alterações.");
+      console.error("Erro ao salvar pedido editado:", e);
+      alert("Erro ao salvar alterações do pedido.");
     }
   };
 
@@ -225,8 +295,8 @@ export function AdminSales({ sales, onUpdate }: Props) {
                       <CheckCircle size={18} /> Concluído
                     </span>
                   )}
-                  <button onClick={() => startEditing(sale)} title="Editar nota" style={{ background: '#e3f2fd', color: '#1565c0', border: 'none', padding: '8px', borderRadius: '8px', cursor: 'pointer' }}>
-                    <Edit2 size={16} />
+                  <button onClick={() => startEditing(sale)} title="Editar pedido completo" style={{ background: '#e3f2fd', color: '#1565c0', border: 'none', padding: '8px 12px', borderRadius: '8px', cursor: 'pointer', fontWeight: 'bold', fontSize: '0.85rem', display: 'flex', alignItems: 'center', gap: '4px' }}>
+                    <Edit2 size={16} /> Alterar Pedido
                   </button>
                   <button onClick={() => handleDeleteSale(sale)} title="Excluir nota" style={{ background: '#ffebee', color: '#c62828', border: 'none', padding: '8px', borderRadius: '8px', cursor: 'pointer' }}>
                     <Trash2 size={16} />
@@ -234,38 +304,98 @@ export function AdminSales({ sales, onUpdate }: Props) {
                 </div>
               </div>
 
-              <div style={{ marginTop: '15px', padding: '12px', background: '#f9f9f9', borderRadius: '8px' }}>
-                <h4 style={{ margin: '0 0 10px 0', fontSize: '0.9rem', color: '#555' }}>
-                  {editingSaleId === sale.id ? "Editando Itens do Pedido:" : "Itens do Pedido:"}
-                </h4>
-                
-                <ul style={{ margin: 0, paddingLeft: editingSaleId === sale.id ? '0' : '20px', color: '#444', listStyleType: editingSaleId === sale.id ? 'none' : 'disc' }}>
-                  {editingSaleId === sale.id ? (
-                    editedItems.map((item: any, i: number) => (
-                      <li key={i} style={{ marginBottom: '8px', display: 'flex', justifyContent: 'space-between', alignItems: 'center', background: '#fff', padding: '8px', borderRadius: '5px', border: '1px solid #ddd' }}>
-                        <span><strong>{item.quantity}x</strong> {item.name} <span style={{ color: '#888' }}>- R$ {(item.quantity * item.price).toFixed(2)}</span></span>
-                        <button onClick={() => removeEditedItem(i)} style={{ background: '#ffebee', color: '#c62828', border: 'none', padding: '5px', borderRadius: '5px', cursor: 'pointer' }}><Trash2 size={16}/></button>
-                      </li>
-                    ))
-                  ) : (
-                    sale.items?.map((item: any, i: number) => (
-                      <li key={i} style={{ marginBottom: '5px' }}>
-                        <strong>{item.quantity}x</strong> {item.name} <span style={{ color: '#888' }}>- R$ {(item.quantity * item.price).toFixed(2)}</span>
-                      </li>
-                    ))
-                  )}
-                </ul>
-                
-                {editingSaleId === sale.id && (
-                  <div style={{ display: 'flex', gap: '10px', marginTop: '15px' }}>
-                    <button onClick={() => setEditingSaleId(null)} style={{ flex: 1, padding: '10px', background: '#ddd', color: '#333', border: 'none', borderRadius: '5px', cursor: 'pointer', fontWeight: 'bold' }}>Cancelar</button>
-                    <button onClick={() => saveEditedSale(sale)} style={{ flex: 1, padding: '10px', background: 'var(--color-gold)', color: '#fff', border: 'none', borderRadius: '5px', cursor: 'pointer', fontWeight: 'bold' }}>Salvar Alterações</button>
+              <div style={{ marginTop: '15px', padding: '15px', background: '#f9f9f9', borderRadius: '10px', border: editingSaleId === sale.id ? '2px solid var(--color-gold)' : '1px solid #eee' }}>
+                {editingSaleId === sale.id ? (
+                  <div style={{ display: 'flex', flexDirection: 'column', gap: '15px' }}>
+                    <h4 style={{ margin: 0, color: 'var(--color-gold-dark)', fontSize: '1rem', display: 'flex', alignItems: 'center', gap: '6px' }}>
+                      ✏️ Editando Dados e Itens do Pedido
+                    </h4>
+
+                    <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(180px, 1fr))', gap: '10px', background: '#fff', padding: '12px', borderRadius: '8px', border: '1px solid #e2e8f0' }}>
+                      <div>
+                        <label style={{ fontSize: '0.8rem', fontWeight: 'bold', color: '#555' }}>Nome do Cliente:</label>
+                        <input type="text" value={editedCustomerName} onChange={e => setEditedCustomerName(e.target.value)} style={inputStyle} />
+                      </div>
+                      <div>
+                        <label style={{ fontSize: '0.8rem', fontWeight: 'bold', color: '#555' }}>Telefone / WhatsApp:</label>
+                        <input type="text" value={editedCustomerPhone} onChange={e => setEditedCustomerPhone(e.target.value)} style={inputStyle} />
+                      </div>
+                      <div>
+                        <label style={{ fontSize: '0.8rem', fontWeight: 'bold', color: '#555' }}>Forma de Pagamento:</label>
+                        <select value={editedMethod} onChange={e => setEditedMethod(e.target.value)} style={inputStyle}>
+                          <option value="Pix">Pix</option>
+                          <option value="Cartão">Cartão</option>
+                          <option value="Dinheiro">Dinheiro</option>
+                          <option value="A Prazo">A Prazo (Crediário)</option>
+                        </select>
+                      </div>
+                      <div style={{ gridColumn: '1 / -1' }}>
+                        <label style={{ fontSize: '0.8rem', fontWeight: 'bold', color: '#555' }}>Endereço de Entrega:</label>
+                        <input type="text" value={editedCustomerAddress} onChange={e => setEditedCustomerAddress(e.target.value)} placeholder="Endereço..." style={inputStyle} />
+                      </div>
+                    </div>
+
+                    <div>
+                      <label style={{ fontWeight: 'bold', fontSize: '0.85rem', color: '#444', marginBottom: '8px', display: 'block' }}>Itens do Pedido:</label>
+                      <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
+                        {editedItems.map((item: any, i: number) => (
+                          <div key={i} style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', background: '#fff', padding: '10px 12px', borderRadius: '8px', border: '1px solid #e2e8f0', gap: '10px', flexWrap: 'wrap' }}>
+                            <div style={{ flex: 1, minWidth: '160px' }}>
+                              <span style={{ fontWeight: 'bold', fontSize: '0.95rem' }}>{item.name}</span>
+                              <span style={{ color: 'var(--color-gold-dark)', marginLeft: '8px', fontSize: '0.9rem', fontWeight: 'bold' }}>R$ {(item.price * item.quantity).toFixed(2)}</span>
+                            </div>
+
+                            <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
+                              <button type="button" onClick={() => updateItemQuantity(i, -1)} style={{ width: '28px', height: '28px', borderRadius: '6px', border: '1px solid #ccc', background: '#f5f5f5', cursor: 'pointer', fontWeight: 'bold', fontSize: '15px' }}>-</button>
+                              <span style={{ minWidth: '24px', textAlign: 'center', fontWeight: 'bold' }}>{item.quantity}</span>
+                              <button type="button" onClick={() => updateItemQuantity(i, 1)} style={{ width: '28px', height: '28px', borderRadius: '6px', border: '1px solid #ccc', background: '#f5f5f5', cursor: 'pointer', fontWeight: 'bold', fontSize: '15px' }}>+</button>
+                              <button type="button" onClick={() => removeEditedItem(i)} title="Remover item" style={{ background: '#ffebee', color: '#c62828', border: 'none', padding: '6px 8px', borderRadius: '6px', cursor: 'pointer', marginLeft: '6px' }}><Trash2 size={16}/></button>
+                            </div>
+                          </div>
+                        ))}
+                      </div>
+                    </div>
+
+                    {productsList.length > 0 && (
+                      <div style={{ background: '#f0fdf4', border: '1px solid #bbf7d0', padding: '12px', borderRadius: '8px' }}>
+                        <label style={{ fontWeight: 'bold', fontSize: '0.85rem', color: '#166534', display: 'block', marginBottom: '6px' }}>+ Adicionar Produto ao Pedido:</label>
+                        <div style={{ display: 'flex', gap: '8px', flexWrap: 'wrap' }}>
+                          <select value={selectedProductToAdd} onChange={e => setSelectedProductToAdd(e.target.value)} style={{ ...inputStyle, flex: 1, minWidth: '200px', marginTop: 0 }}>
+                            <option value="">-- Selecione um produto para adicionar --</option>
+                            {productsList.map(p => (
+                              <option key={p.id} value={p.id}>
+                                {p.name} (R$ {(p.isPromotion && p.promotionalPrice ? p.promotionalPrice : p.price).toFixed(2)})
+                              </option>
+                            ))}
+                          </select>
+                          <button type="button" onClick={handleAddItemToOrder} disabled={!selectedProductToAdd} style={{ padding: '8px 15px', background: selectedProductToAdd ? '#166534' : '#ccc', color: '#fff', border: 'none', borderRadius: '8px', fontWeight: 'bold', cursor: selectedProductToAdd ? 'pointer' : 'default', display: 'flex', alignItems: 'center', gap: '4px' }}>
+                            <Plus size={16} /> Incluir
+                          </button>
+                        </div>
+                      </div>
+                    )}
+
+                    <div style={{ display: 'flex', gap: '10px', marginTop: '10px' }}>
+                      <button type="button" onClick={() => setEditingSaleId(null)} style={{ flex: 1, padding: '12px', background: '#eee', color: '#555', border: 'none', borderRadius: '8px', cursor: 'pointer', fontWeight: 'bold' }}>Cancelar</button>
+                      <button type="button" onClick={() => saveEditedSale(sale)} style={{ flex: 2, padding: '12px', background: 'var(--color-gold)', color: '#fff', border: 'none', borderRadius: '8px', cursor: 'pointer', fontWeight: 'bold' }}>💾 Salvar Alterações no Pedido</button>
+                    </div>
                   </div>
-                )}
-                {sale.customerAddress && (
-                  <p style={{ margin: '12px 0 0 0', fontSize: '0.85rem', color: '#666', borderTop: '1px solid #ddd', paddingTop: '8px' }}>
-                    <strong>🏠 Endereço:</strong> {sale.customerAddress}
-                  </p>
+                ) : (
+                  <>
+                    <h4 style={{ margin: '0 0 10px 0', fontSize: '0.9rem', color: '#555' }}>Itens do Pedido:</h4>
+                    <ul style={{ margin: 0, paddingLeft: '20px', color: '#444' }}>
+                      {sale.items?.map((item: any, i: number) => (
+                        <li key={i} style={{ marginBottom: '5px' }}>
+                          <strong>{item.quantity}x</strong> {item.name} <span style={{ color: '#888' }}>- R$ {(item.quantity * item.price).toFixed(2)}</span>
+                        </li>
+                      ))}
+                    </ul>
+                    {sale.customerAddress && (
+                      <p style={{ margin: '12px 0 0 0', fontSize: '0.85rem', color: '#666', borderTop: '1px solid #ddd', paddingTop: '8px' }}>
+                        <strong>🏠 Endereço:</strong> {sale.customerAddress}
+                      </p>
+                    )}
+                  </>
                 )}
               </div>
             </div>
@@ -275,6 +405,8 @@ export function AdminSales({ sales, onUpdate }: Props) {
     </div>
   );
 }
+
+const inputStyle = { width: '100%', padding: '8px 10px', borderRadius: '6px', border: '1px solid #ccc', marginTop: '4px', fontSize: '0.9rem', boxSizing: 'border-box' as const };
 
 function FilterButton({ active, onClick, children }: { active: boolean, onClick: () => void, children: React.ReactNode }) {
   return (
