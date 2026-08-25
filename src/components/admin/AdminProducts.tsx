@@ -92,7 +92,7 @@ export function AdminProducts({ productsList, onUpdate, migrateLocalProducts }: 
         await setDoc(doc(db, "products", editingId), productData, { merge: true });
         alert("Produto atualizado!");
       } else {
-        if (!imageUrl) productData.image = "https://via.placeholder.com/150?text=Sem+Foto";
+        if (!imageUrl) productData.image = "https://images.unsplash.com/photo-1522337360788-8b13dee7a37e?w=400&q=80";
         const newId = newBarcode || Date.now().toString();
         await setDoc(doc(db, "products", newId), productData);
         alert("Produto adicionado!");
@@ -211,7 +211,18 @@ export function AdminProducts({ productsList, onUpdate, migrateLocalProducts }: 
       <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(280px, 1fr))', gap: '12px' }}>
         {filteredProducts.map(product => (
           <div key={product.id} style={{ background: '#fff', borderRadius: '12px', boxShadow: 'var(--shadow-card)', padding: '12px', display: 'flex', alignItems: 'center', gap: '10px' }}>
-            <img src={product.image} alt={product.name} style={{ width: '60px', height: '60px', objectFit: 'cover', borderRadius: '8px', flexShrink: 0 }} />
+            <img 
+              src={product.image || "https://images.unsplash.com/photo-1522337360788-8b13dee7a37e?w=400&q=80"} 
+              alt={product.name} 
+              style={{ width: '60px', height: '60px', objectFit: 'cover', borderRadius: '8px', flexShrink: 0 }} 
+              onError={(e) => {
+                const target = e.target as HTMLImageElement;
+                const fallback = "https://images.unsplash.com/photo-1522337360788-8b13dee7a37e?w=400&q=80";
+                if (target.src !== fallback) {
+                  target.src = fallback;
+                }
+              }}
+            />
             <div style={{ flex: 1, minWidth: 0 }}>
               <h4 style={{ margin: '0 0 4px 0', fontSize: '0.95rem', display: 'flex', alignItems: 'center', gap: '6px', flexWrap: 'wrap', wordBreak: 'break-word' }}>
                 {product.name}

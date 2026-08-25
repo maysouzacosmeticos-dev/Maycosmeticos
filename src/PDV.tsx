@@ -385,7 +385,17 @@ export default function PDV() {
           ) : (
             cart.map(item => (
               <div key={item.product.id} style={{ display: 'flex', alignItems: 'center', background: 'white', padding: '12px', borderRadius: '8px', marginBottom: '10px', boxShadow: '0 2px 5px rgba(0,0,0,0.05)' }}>
-                <img src={item.product.image} style={{ width: '50px', height: '50px', borderRadius: '6px', objectFit: 'cover' }} />
+                <img 
+                  src={item.product.image || "https://images.unsplash.com/photo-1522337360788-8b13dee7a37e?w=400&q=80"} 
+                  style={{ width: '50px', height: '50px', borderRadius: '6px', objectFit: 'cover' }} 
+                  onError={(e) => {
+                    const target = e.target as HTMLImageElement;
+                    const fallback = "https://images.unsplash.com/photo-1522337360788-8b13dee7a37e?w=400&q=80";
+                    if (target.src !== fallback) {
+                      target.src = fallback;
+                    }
+                  }}
+                />
                 <div style={{ flex: 1, marginLeft: '12px' }}>
                   <h4 style={{ margin: '0 0 4px 0', fontSize: '0.95rem' }}>{item.product.name}</h4>
                   <p style={{ margin: 0, fontWeight: 'bold', color: 'var(--color-gold-dark)' }}>R$ {(item.product.price * item.quantity).toFixed(2)}</p>

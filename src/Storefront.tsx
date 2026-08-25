@@ -257,7 +257,18 @@ export default function Storefront() {
             <span style={{ fontSize: '1rem' }}>⚡</span> OFERTA RELÂMPAGO
           </div>
         )}
-        <img src={product.image} alt={product.name} loading="lazy" />
+        <img 
+          src={product.image || "https://images.unsplash.com/photo-1522337360788-8b13dee7a37e?w=400&q=80"} 
+          alt={product.name} 
+          loading="lazy" 
+          onError={(e) => {
+            const target = e.target as HTMLImageElement;
+            const fallback = "https://images.unsplash.com/photo-1522337360788-8b13dee7a37e?w=400&q=80";
+            if (target.src !== fallback) {
+              target.src = fallback;
+            }
+          }}
+        />
       </div>
       <div className="product-info">
         <h3>{product.name}</h3>
@@ -387,7 +398,17 @@ export default function Storefront() {
               ) : (
                 cart.map(item => (
                   <div key={item.product.id} className="cart-item">
-                    <img src={item.product.image} alt={item.product.name} />
+                    <img 
+                      src={item.product.image || "https://images.unsplash.com/photo-1522337360788-8b13dee7a37e?w=400&q=80"} 
+                      alt={item.product.name} 
+                      onError={(e) => {
+                        const target = e.target as HTMLImageElement;
+                        const fallback = "https://images.unsplash.com/photo-1522337360788-8b13dee7a37e?w=400&q=80";
+                        if (target.src !== fallback) {
+                          target.src = fallback;
+                        }
+                      }}
+                    />
                     <div className="item-details">
                       <h4>{item.product.name}</h4>
                       {item.product.isPromotion ? (
