@@ -1,6 +1,6 @@
 import { useState } from 'react';
-import { PackageSearch, Plus, Edit2, Trash2, Search } from 'lucide-react';
-import { doc, setDoc, deleteDoc, updateDoc } from 'firebase/firestore';
+import { PackageSearch, Plus, Trash2, Edit2, Search, Star } from 'lucide-react';
+import { doc, setDoc, updateDoc, deleteDoc } from 'firebase/firestore';
 import { db } from '../../firebase';
 
 interface Props {
@@ -21,13 +21,14 @@ export function AdminProducts({ productsList, onUpdate, migrateLocalProducts }: 
   const [newStock, setNewStock] = useState('10');
   const [newBarcode, setNewBarcode] = useState('');
   const [isPromotion, setIsPromotion] = useState(false);
+  const [isFeatured, setIsFeatured] = useState(false);
   const [promotionalPrice, setPromotionalPrice] = useState('');
   const [promoPaymentMethod, setPromoPaymentMethod] = useState<'all' | 'pix_only'>('all');
   const [newImage, setNewImage] = useState<File | null>(null);
   const [uploading, setUploading] = useState(false);
 
   const resetForm = () => {
-    setNewName(''); setNewPrice(''); setNewCost('0'); setNewStock('10'); setNewBarcode(''); setIsPromotion(false); setPromotionalPrice(''); setPromoPaymentMethod('all'); setNewImage(null); setEditingId(null); setIsAdding(false);
+    setNewName(''); setNewPrice(''); setNewCost('0'); setNewStock('10'); setNewBarcode(''); setIsPromotion(false); setIsFeatured(false); setPromotionalPrice(''); setPromoPaymentMethod('all'); setNewImage(null); setEditingId(null); setIsAdding(false);
   };
 
   const handleEdit = (product: any) => {
@@ -38,6 +39,7 @@ export function AdminProducts({ productsList, onUpdate, migrateLocalProducts }: 
     setNewStock(product.stock !== undefined ? product.stock.toString() : '0');
     setNewBarcode(product.barcode || '');
     setIsPromotion(product.isPromotion || false);
+    setIsFeatured(product.isFeatured || false);
     setPromotionalPrice(product.promotionalPrice ? product.promotionalPrice.toString() : '');
     setPromoPaymentMethod(product.promoPaymentMethod || 'all');
     setIsAdding(true);
@@ -62,6 +64,16 @@ export function AdminProducts({ productsList, onUpdate, migrateLocalProducts }: 
     }
   };
 
+  const handleToggleFeatured = async (product: any) => {
+    const newFeatured = !product.isFeatured;
+    try {
+      await updateDoc(doc(db, "products", product.id), { isFeatured: newFeatured });
+      onUpdate();
+    } catch (error) {
+      console.error("Erro ao alterar destaque:", error);
+    }
+  };
+
   const handleSaveProduct = async (e: React.FormEvent) => {
     e.preventDefault();
     setUploading(true);
@@ -80,6 +92,7 @@ export function AdminProducts({ productsList, onUpdate, migrateLocalProducts }: 
         price: parseFloat(newPrice),
         cost: parseFloat(newCost) || 0,
         isPromotion: isPromotion,
+        isFeatured: isFeatured,
         promotionalPrice: isPromotion ? parseFloat(promotionalPrice) : null,
         promoPaymentMethod: isPromotion ? promoPaymentMethod : 'all',
         stock: parseInt(newStock) || 0,
@@ -145,27 +158,34 @@ export function AdminProducts({ productsList, onUpdate, migrateLocalProducts }: 
               </div>
             </div>
 
-            <div style={{ background: '#fff3e0', padding: '15px', borderRadius: '8px', border: '1px solid #ffe0b2' }}>
-              <div style={{ display: 'flex', alignItems: 'center', gap: '10px', marginBottom: isPromotion ? '15px' : '0' }}>
-                <input type="checkbox" id="promoToggle" checked={isPromotion} onChange={e => setIsPromotion(e.target.checked)} style={{ width: '20px', height: '20px', cursor: 'pointer' }} />
-                <label htmlFor="promoToggle" style={{ fontWeight: 'bold', color: '#e65100', cursor: 'pointer', margin: 0 }}>🔥 Ativar Promoção / Oferta Relâmpago?</label>
+            <div style={{ display: 'flex', gap: '15px', flexWrap: 'wrap' }}>
+              <div style={{ flex: 1, minWidth: '220px', background: '#fff8e1', padding: '12px 15px', borderRadius: '8px', border: '1px solid #ffe082', display: 'flex', alignItems: 'center', gap: '10px' }}>
+                <input type="checkbox" id="featuredToggle" checked={isFeatured} onChange={e => setIsFeatured(e.target.checked)} style={{ width: '20px', height: '20px', cursor: 'pointer' }} />
+                <label htmlFor="featuredToggle" style={{ fontWeight: 'bold', color: '#b45309', cursor: 'pointer', margin: 0 }}>⭐ Destacar Produto no Topo da Loja?</label>
               </div>
-              
-              {isPromotion && (
-                <div style={{ display: 'flex', flexDirection: 'column', gap: '15px' }}>
-                  <div>
-                    <label style={{ fontWeight: 'bold', color: '#e65100', display: 'block', marginBottom: '5px' }}>Preço Promocional (R$):</label>
-                    <input type="number" step="0.01" value={promotionalPrice} onChange={e => setPromotionalPrice(e.target.value)} required style={{ ...inputStyle, borderColor: '#ffcc80' }} />
-                  </div>
-                  <div>
-                    <label style={{ fontWeight: 'bold', color: '#e65100', display: 'block', marginBottom: '5px' }}>Forma de Pagamento da Oferta:</label>
-                    <select value={promoPaymentMethod} onChange={e => setPromoPaymentMethod(e.target.value as any)} style={{ ...inputStyle, borderColor: '#ffcc80' }}>
-                      <option value="all">Aceitar todos os métodos (Cartão, Pix, Whats)</option>
-                      <option value="pix_only">Apenas PIX (Bloquear Cartão)</option>
-                    </select>
-                  </div>
+
+              <div style={{ flex: 1, minWidth: '220px', background: '#fff3e0', padding: '12px 15px', borderRadius: '8px', border: '1px solid #ffe0b2' }}>
+                <div style={{ display: 'flex', alignItems: 'center', gap: '10px', marginBottom: isPromotion ? '15px' : '0' }}>
+                  <input type="checkbox" id="promoToggle" checked={isPromotion} onChange={e => setIsPromotion(e.target.checked)} style={{ width: '20px', height: '20px', cursor: 'pointer' }} />
+                  <label htmlFor="promoToggle" style={{ fontWeight: 'bold', color: '#e65100', cursor: 'pointer', margin: 0 }}>🔥 Ativar Promoção / Oferta Relâmpago?</label>
                 </div>
-              )}
+                
+                {isPromotion && (
+                  <div style={{ display: 'flex', flexDirection: 'column', gap: '15px', marginTop: '10px' }}>
+                    <div>
+                      <label style={{ fontWeight: 'bold', color: '#e65100', display: 'block', marginBottom: '5px' }}>Preço Promocional (R$):</label>
+                      <input type="number" step="0.01" value={promotionalPrice} onChange={e => setPromotionalPrice(e.target.value)} required style={{ ...inputStyle, borderColor: '#ffcc80' }} />
+                    </div>
+                    <div>
+                      <label style={{ fontWeight: 'bold', color: '#e65100', display: 'block', marginBottom: '5px' }}>Forma de Pagamento da Oferta:</label>
+                      <select value={promoPaymentMethod} onChange={e => setPromoPaymentMethod(e.target.value as any)} style={{ ...inputStyle, borderColor: '#ffcc80' }}>
+                        <option value="all">Aceitar todos os métodos (Cartão, Pix, Whats)</option>
+                        <option value="pix_only">Apenas PIX (Bloquear Cartão)</option>
+                      </select>
+                    </div>
+                  </div>
+                )}
+              </div>
             </div>
 
             <div>
@@ -226,6 +246,7 @@ export function AdminProducts({ productsList, onUpdate, migrateLocalProducts }: 
             <div style={{ flex: 1, minWidth: 0 }}>
               <h4 style={{ margin: '0 0 4px 0', fontSize: '0.95rem', display: 'flex', alignItems: 'center', gap: '6px', flexWrap: 'wrap', wordBreak: 'break-word' }}>
                 {product.name}
+                {product.isFeatured && <span style={{ background: '#fff8e1', color: '#b45309', padding: '2px 6px', borderRadius: '10px', fontSize: '0.65rem', fontWeight: 'bold', border: '1px solid #fde68a' }}>⭐ DESTAQUE</span>}
                 {product.isPromotion && <span style={{ background: '#ffebee', color: '#c62828', padding: '2px 6px', borderRadius: '10px', fontSize: '0.65rem', fontWeight: 'bold' }}>OFERTA</span>}
               </h4>
               
@@ -276,6 +297,9 @@ export function AdminProducts({ productsList, onUpdate, migrateLocalProducts }: 
               </div>
             </div>
             <div style={{ display: 'flex', flexDirection: 'column', gap: '6px', flexShrink: 0 }}>
+              <button onClick={() => handleToggleFeatured(product)} title={product.isFeatured ? "Remover dos Destaques" : "Marcar como Destaque no Topo da Loja"} style={{ background: product.isFeatured ? '#fff8e1' : '#f5f5f5', color: product.isFeatured ? '#f59e0b' : '#999', border: '1px solid ' + (product.isFeatured ? '#f59e0b' : '#ddd'), padding: '8px', borderRadius: '8px', cursor: 'pointer' }}>
+                <Star size={16} fill={product.isFeatured ? '#f59e0b' : 'none'} />
+              </button>
               <button onClick={() => handleEdit(product)} title="Editar produto completo" style={{ background: '#e3f2fd', color: '#1565c0', border: 'none', padding: '8px', borderRadius: '8px', cursor: 'pointer' }}><Edit2 size={16}/></button>
               <button onClick={() => handleDelete(product.id)} title="Excluir produto" style={{ background: '#ffebee', color: '#c62828', border: 'none', padding: '8px', borderRadius: '8px', cursor: 'pointer' }}><Trash2 size={16}/></button>
             </div>
@@ -286,4 +310,4 @@ export function AdminProducts({ productsList, onUpdate, migrateLocalProducts }: 
   );
 }
 
-const inputStyle = { width: '100%', padding: '12px', borderRadius: '8px', border: '1px solid #ddd', marginTop: '5px', fontSize: '15px', boxSizing: 'border-box' as const };
+const inputStyle = { width: '100%', padding: '8px 10px', borderRadius: '6px', border: '1px solid #ccc', marginTop: '4px', fontSize: '0.9rem', boxSizing: 'border-box' as const };

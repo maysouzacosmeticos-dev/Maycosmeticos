@@ -259,12 +259,21 @@ export default function Storefront() {
     const priceB = b.isPromotion && b.promotionalPrice ? b.promotionalPrice : b.price;
     if (sortOrder === 'preco_asc') return priceA - priceB;
     if (sortOrder === 'preco_desc') return priceB - priceA;
-    return 0;
+
+    // Destaques no topo
+    const scoreA = (a.isFeatured ? 2 : 0) + (a.isPromotion ? 1 : 0);
+    const scoreB = (b.isFeatured ? 2 : 0) + (b.isPromotion ? 1 : 0);
+    return scoreB - scoreA;
   });
 
   const renderProductCard = (product: Product) => (
     <div key={product.id} className="product-card">
       <div className="product-image-container" style={{ position: 'relative' }}>
+        {product.isFeatured && (
+          <div style={{ position: 'absolute', top: '10px', right: '10px', background: '#f59e0b', color: 'white', fontSize: '0.75rem', fontWeight: 'bold', padding: '4px 8px', borderRadius: '12px', zIndex: 2, boxShadow: '0 2px 6px rgba(0,0,0,0.2)' }}>
+            ⭐ DESTAQUE
+          </div>
+        )}
         {product.isPromotion && (
           <div className="promo-badge">
             <span style={{ fontSize: '1rem' }}>⚡</span> OFERTA RELÂMPAGO

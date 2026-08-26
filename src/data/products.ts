@@ -10,6 +10,7 @@ export interface Product {
   isPromotion?: boolean;
   promotionalPrice?: number;
   promoPaymentMethod?: 'all' | 'pix_only';
+  isFeatured?: boolean;
 }
 
 export const products: Product[] = [
