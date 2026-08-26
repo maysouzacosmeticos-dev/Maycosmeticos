@@ -7,6 +7,14 @@ import { products as localProducts } from './data/products';
 import { QRCodeSVG } from 'qrcode.react';
 import { BottomNav } from './components/BottomNav';
 
+const InstagramIcon = ({ size = 16 }: { size?: number }) => (
+  <svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+    <rect x="2" y="2" width="20" height="20" rx="5" ry="5"></rect>
+    <path d="M16 11.37A4 4 0 1 1 12.63 8 4 4 0 0 1 16 11.37z"></path>
+    <line x1="17.5" y1="6.5" x2="17.51" y2="6.5"></line>
+  </svg>
+);
+
 interface CartItem {
   product: Product;
   quantity: number;
@@ -336,7 +344,17 @@ export default function Storefront() {
             </div>
             <div>
               <h1 className="header-brand-name">May Cosméticos</h1>
-              <p className="header-subtitle">Beleza & Bem-Estar</p>
+              <p className="header-subtitle" style={{ display: 'flex', alignItems: 'center', gap: '6px', flexWrap: 'wrap' }}>
+                Beleza & Bem-Estar 
+                <a 
+                  href="https://instagram.com/maycosmeticos.2026" 
+                  target="_blank" 
+                  rel="noreferrer" 
+                  style={{ display: 'inline-flex', alignItems: 'center', gap: '4px', color: '#e1306c', textDecoration: 'none', fontSize: '0.8rem', fontWeight: 'bold', background: 'rgba(255,255,255,0.9)', padding: '2px 8px', borderRadius: '12px' }}
+                >
+                  <InstagramIcon size={12} /> @maycosmeticos.2026
+                </a>
+              </p>
             </div>
           </div>
           
@@ -433,6 +451,21 @@ export default function Storefront() {
             </button>
           </div>
         )}
+
+        {/* FOOTER DA LOJA */}
+        <footer style={{ marginTop: '50px', padding: '30px 20px', textAlign: 'center', borderTop: '1px dashed #ddd', background: '#fff', borderRadius: '16px', boxShadow: 'var(--shadow-card)', marginBottom: '80px' }}>
+          <h4 style={{ margin: '0 0 6px 0', color: 'var(--color-gold-dark)', fontSize: '1.2rem' }}>May Cosméticos</h4>
+          <p style={{ margin: '0 0 15px 0', fontSize: '0.9rem', color: '#666' }}>Floresça a sua melhor versão 🌸</p>
+          
+          <a 
+            href="https://instagram.com/maycosmeticos.2026" 
+            target="_blank" 
+            rel="noreferrer" 
+            style={{ display: 'inline-flex', alignItems: 'center', gap: '8px', background: 'linear-gradient(45deg, #f09433 0%, #e6683c 25%, #dc2743 50%, #cc2366 75%, #bc1888 100%)', color: '#fff', textDecoration: 'none', padding: '10px 22px', borderRadius: '25px', fontWeight: 'bold', fontSize: '0.95rem', boxShadow: '0 4px 12px rgba(225,48,108,0.3)' }}
+          >
+            <InstagramIcon size={20} /> Siga-nos @maycosmeticos.2026
+          </a>
+        </footer>
       </main>
 
       {/* CARRINHO DE COMPRAS (SIDEBAR) */}
