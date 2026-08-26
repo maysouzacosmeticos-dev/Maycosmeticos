@@ -25,6 +25,8 @@ export default function Storefront() {
   const [selectedPaymentMethod, setSelectedPaymentMethod] = useState<'pix' | 'cartao' | 'whatsapp' | null>(null);
   const [whatsappNumber, setWhatsappNumber] = useState("5575988071066");
   const [showPromosOnly, setShowPromosOnly] = useState(false);
+  const [sortOrder, setSortOrder] = useState<'destaques' | 'nome_asc' | 'nome_desc' | 'preco_asc' | 'preco_desc'>('destaques');
+  const [searchTerm, setSearchTerm] = useState('');
 
   useEffect(() => {
     // 1. Fetch Products
@@ -247,7 +249,18 @@ export default function Storefront() {
   }
 
   const promoProducts = storeProducts.filter(p => p.isPromotion);
-  const displayProducts = showPromosOnly ? promoProducts : storeProducts;
+  const rawProducts = showPromosOnly ? promoProducts : storeProducts;
+  const filteredProducts = rawProducts.filter(p => p.name.toLowerCase().includes(searchTerm.toLowerCase()));
+
+  const displayProducts = [...filteredProducts].sort((a, b) => {
+    if (sortOrder === 'nome_asc') return a.name.localeCompare(b.name);
+    if (sortOrder === 'nome_desc') return b.name.localeCompare(a.name);
+    const priceA = a.isPromotion && a.promotionalPrice ? a.promotionalPrice : a.price;
+    const priceB = b.isPromotion && b.promotionalPrice ? b.promotionalPrice : b.price;
+    if (sortOrder === 'preco_asc') return priceA - priceB;
+    if (sortOrder === 'preco_desc') return priceB - priceA;
+    return 0;
+  });
 
   const renderProductCard = (product: Product) => (
     <div key={product.id} className="product-card">
@@ -359,13 +372,45 @@ export default function Storefront() {
         )}
 
         {!showPromosOnly && (
-          <h2 style={{ textAlign: 'center', marginBottom: '1.5rem', color: 'var(--color-gold-dark)', fontSize: '1.8rem' }}>
+          <h2 style={{ textAlign: 'center', marginBottom: '1rem', color: 'var(--color-gold-dark)', fontSize: '1.8rem' }}>
             Nossos Produtos
           </h2>
         )}
 
+        {/* Barra de Busca e Ordenação */}
+        <div style={{ display: 'flex', gap: '10px', marginBottom: '25px', flexWrap: 'wrap', justifyContent: 'center', alignItems: 'center', padding: '0 10px' }}>
+          <div style={{ flex: '1 1 200px', maxWidth: '400px' }}>
+            <input 
+              type="text" 
+              placeholder="🔍 Buscar produto..." 
+              value={searchTerm}
+              onChange={(e) => setSearchTerm(e.target.value)}
+              style={{ width: '100%', padding: '10px 15px', borderRadius: '25px', border: '1px solid #ddd', outline: 'none', boxShadow: 'var(--shadow-card)', fontSize: '0.95rem', boxSizing: 'border-box' }}
+            />
+          </div>
+
+          <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+            <label style={{ fontSize: '0.85rem', fontWeight: 'bold', color: '#555' }}>Ordenar:</label>
+            <select 
+              value={sortOrder} 
+              onChange={(e) => setSortOrder(e.target.value as any)}
+              style={{ padding: '10px 15px', borderRadius: '25px', border: '1px solid #ddd', background: '#fff', fontWeight: 'bold', color: '#444', outline: 'none', cursor: 'pointer', boxShadow: 'var(--shadow-card)', fontSize: '0.9rem' }}
+            >
+              <option value="destaques">✨ Destaques</option>
+              <option value="nome_asc">🔤 Nome (A - Z)</option>
+              <option value="nome_desc">🔤 Nome (Z - A)</option>
+              <option value="preco_asc">🏷️ Menor Preço</option>
+              <option value="preco_desc">💎 Maior Preço</option>
+            </select>
+          </div>
+        </div>
+
         <section className="products-grid">
-          {displayProducts.map(renderProductCard)}
+          {displayProducts.length === 0 ? (
+            <p style={{ textAlign: 'center', color: '#888', gridColumn: '1 / -1', padding: '30px' }}>Nenhum produto encontrado com esse filtro.</p>
+          ) : (
+            displayProducts.map(renderProductCard)
+          )}
         </section>
 
         {showPromosOnly && (
