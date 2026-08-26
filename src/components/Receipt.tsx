@@ -96,17 +96,17 @@ export const Receipt: React.FC<ReceiptProps> = ({ customerName, items, date, pay
           <span>R$ {totalAmount.toFixed(2)}</span>
         </div>
         
-        {partialPayment && (
+        {partialPayment && parseFloat(partialPayment) > 0 && (
           <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '5px', color: '#555', fontSize: '14px' }}>
-            <span>Valor Pago (Parcial):</span>
-            <span>- R$ {parseFloat(partialPayment).toFixed(2)}</span>
+            <span>VALOR PAGO (ENTRADA/PARCIAL):</span>
+            <span>R$ {parseFloat(partialPayment).toFixed(2)}</span>
           </div>
         )}
 
-        {partialPayment && (
-          <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '15px', fontWeight: 'bold' }}>
-            <span>RESTANTE:</span>
-            <span>R$ {(totalAmount - parseFloat(partialPayment)).toFixed(2)}</span>
+        {(paymentMethod === 'A Prazo' || (partialPayment && parseFloat(partialPayment) < totalAmount)) && (
+          <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '15px', fontWeight: 'bold', color: '#d97706', fontSize: '15px' }}>
+            <span>RESTANTE A PRAZO (CREDIÁRIO):</span>
+            <span>R$ {Math.max(0, totalAmount - (parseFloat(partialPayment || '0') || 0)).toFixed(2)}</span>
           </div>
         )}
 

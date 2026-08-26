@@ -2,6 +2,7 @@ import { useState } from 'react';
 import { Package, CheckCircle, Trash2, Edit2, DollarSign, Plus } from 'lucide-react';
 import { doc, updateDoc, increment, deleteDoc } from 'firebase/firestore';
 import { db } from '../../firebase';
+import { sendDigitalPaymentReceipt } from '../../utils/generatePaymentReceipt';
 
 interface Props {
   sales: any[];
@@ -56,7 +57,10 @@ export function AdminSales({ sales, productsList = [], onUpdate }: Props) {
         }
 
         onUpdate();
-        alert('Baixa total realizada com sucesso!');
+        
+        if (window.confirm("Deseja enviar o Recibo Digital de Pagamento no WhatsApp do cliente?")) {
+          sendDigitalPaymentReceipt(sale.customerName, sale.customerPhone, remaining, 0, 'Baixa Total (Quitação)');
+        }
       } catch (e) {
         alert('Erro ao realizar baixa total.');
       }
@@ -79,6 +83,7 @@ export function AdminSales({ sales, productsList = [], onUpdate }: Props) {
     if (payValue <= 0) return;
 
     const newAmountPaid = amountPaidSoFar + payValue;
+    const remainingDebt = Math.max(0, sale.total - newAmountPaid);
     const isFullyPaid = newAmountPaid >= (sale.total - 0.01);
     const newStatus = isFullyPaid ? 'pago' : 'parcial';
 
@@ -96,7 +101,10 @@ export function AdminSales({ sales, productsList = [], onUpdate }: Props) {
       }
 
       onUpdate();
-      alert(`Baixa parcial de R$ ${payValue.toFixed(2)} registrada! Saldo restante: R$ ${(sale.total - newAmountPaid).toFixed(2)}`);
+
+      if (window.confirm("Deseja enviar o Recibo Digital do Pagamento Parcial no WhatsApp do cliente?")) {
+        sendDigitalPaymentReceipt(sale.customerName, sale.customerPhone, payValue, remainingDebt, 'Baixa Parcial');
+      }
     } catch (e) {
       alert('Erro ao registrar baixa parcial.');
     }

@@ -2,6 +2,7 @@ import { useState } from 'react';
 import { Users, Search, MessageCircle, FileText, ChevronDown, ChevronUp, Edit2, Trash2, Star, Clock, AlertTriangle, Heart, Copy } from 'lucide-react';
 import { doc, updateDoc, increment, deleteDoc } from 'firebase/firestore';
 import { db } from '../../firebase';
+import { sendDigitalPaymentReceipt } from '../../utils/generatePaymentReceipt';
 
 interface Props {
   customers: any[];
@@ -80,10 +81,15 @@ export function AdminCRM({ customers, sales, onUpdate }: Props) {
   };
 
   const quitarDivida = async (c: any) => {
-    if(window.confirm(`Quitar dívida de R$ ${(c.totalDivida).toFixed(2)} de ${c.name}?`)) {
+    const dividaValor = c.totalDivida || 0;
+    if(window.confirm(`Quitar dívida de R$ ${dividaValor.toFixed(2)} de ${c.name}?`)) {
       try {
-        await updateDoc(doc(db, "customers", c.id), { totalDivida: 0, totalGasto: increment(c.totalDivida) });
+        await updateDoc(doc(db, "customers", c.id), { totalDivida: 0, totalGasto: increment(dividaValor) });
         onUpdate();
+        
+        if (window.confirm("Deseja enviar o Recibo Digital de Quitação no WhatsApp do cliente?")) {
+          sendDigitalPaymentReceipt(c.name, c.phone, dividaValor, 0, 'Quitação Total de Dívida');
+        }
       } catch (e) {
         alert("Erro ao quitar dívida.");
       }
@@ -107,7 +113,10 @@ export function AdminCRM({ customers, sales, onUpdate }: Props) {
         totalGasto: increment(val) 
       });
       onUpdate();
-      alert(`Abatimento de R$ ${val.toFixed(2)} registrado! Dívida restante: R$ ${novaDivida.toFixed(2)}.`);
+
+      if (window.confirm("Deseja enviar o Recibo Digital de Baixa Parcial no WhatsApp do cliente?")) {
+        sendDigitalPaymentReceipt(c.name, c.phone, val, novaDivida, 'Baixa Parcial no CRM');
+      }
     } catch (e) {
       alert("Erro ao dar baixa parcial.");
     }
