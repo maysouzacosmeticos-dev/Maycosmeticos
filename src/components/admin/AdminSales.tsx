@@ -445,6 +445,14 @@ export function AdminSales({ sales, productsList = [], onUpdate }: Props) {
                 </div>
                 
                 <div style={{ display: 'flex', gap: '6px', flexWrap: 'wrap', alignItems: 'center' }}>
+                  <button 
+                    onClick={() => handleSendConfirmedReceipt(sale)} 
+                    title="Enviar extrato/comprovante do pedido no WhatsApp" 
+                    style={{ background: '#25D366', color: '#fff', border: 'none', padding: '8px 12px', borderRadius: '8px', cursor: 'pointer', fontWeight: 'bold', fontSize: '0.85rem', display: 'flex', alignItems: 'center', gap: '4px' }}
+                  >
+                    <MessageCircle size={15} /> Enviar Whats
+                  </button>
+
                   {sale.status === 'pendente' && (
                     <button 
                       onClick={() => handleConfirmOrder(sale)} 
