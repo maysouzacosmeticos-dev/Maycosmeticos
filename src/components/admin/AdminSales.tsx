@@ -26,6 +26,7 @@ export function AdminSales({ sales, productsList = [], onUpdate }: Props) {
 
   // Modal de Recibo Visual / Cupom
   const [receiptModalSale, setReceiptModalSale] = useState<any | null>(null);
+  const [allowCouponModal, setAllowCouponModal] = useState(false);
   const [includeCoupon, setIncludeCoupon] = useState(false);
   const [couponCodeInput, setCouponCodeInput] = useState('');
   const [couponTextInput, setCouponTextInput] = useState('');
@@ -46,11 +47,24 @@ export function AdminSales({ sales, productsList = [], onUpdate }: Props) {
 
   const pendingCount = sales.filter(s => s.status === 'pendente' || s.status === 'parcial' || s.method === 'A Prazo').length;
 
-  const handleOpenReceiptModal = (sale: any) => {
+  const handleOpenReceiptModal = (sale: any, allowCoupon: boolean = false) => {
     setReceiptModalSale(sale);
+    setAllowCouponModal(allowCoupon);
     setIncludeCoupon(false);
     setCouponCodeInput('');
     setCouponTextInput('');
+  };
+
+  const handleConfirmOrder = async (sale: any) => {
+    if (window.confirm(`Confirmar o pedido de ${sale.customerName || 'Cliente'} e enviar mensagem de confirmação no WhatsApp?`)) {
+      try {
+        await updateDoc(doc(db, "sales", sale.id), { status: 'pago' });
+        onUpdate();
+        handleSendConfirmedReceipt(sale);
+      } catch (e) {
+        alert("Erro ao confirmar pedido.");
+      }
+    }
   };
 
   const generateReceiptCanvas = async () => {
@@ -406,6 +420,16 @@ export function AdminSales({ sales, productsList = [], onUpdate }: Props) {
                 </div>
                 
                 <div style={{ display: 'flex', gap: '6px', flexWrap: 'wrap', alignItems: 'center' }}>
+                  {sale.status === 'pendente' && (
+                    <button 
+                      onClick={() => handleConfirmOrder(sale)} 
+                      title="Confirmar pedido e notificar cliente no WhatsApp" 
+                      style={{ background: '#0284c7', color: '#fff', border: 'none', padding: '8px 12px', borderRadius: '8px', cursor: 'pointer', fontWeight: 'bold', fontSize: '0.85rem', display: 'flex', alignItems: 'center', gap: '4px' }}
+                    >
+                      <CheckCircle size={15} /> Confirmar Pedido
+                    </button>
+                  )}
+
                   {isPendingOrCrediario ? (
                     <>
                       <button onClick={() => handleBaixaTotal(sale)} title="Quitar total da venda" style={{ background: '#2e7d32', color: '#fff', border: 'none', padding: '8px 12px', borderRadius: '8px', cursor: 'pointer', fontWeight: 'bold', fontSize: '0.85rem', display: 'flex', alignItems: 'center', gap: '4px' }}>
@@ -414,23 +438,25 @@ export function AdminSales({ sales, productsList = [], onUpdate }: Props) {
                       <button onClick={() => handleBaixaParcial(sale)} title="Dar baixa parcial" style={{ background: '#ed6c02', color: '#fff', border: 'none', padding: '8px 12px', borderRadius: '8px', cursor: 'pointer', fontWeight: 'bold', fontSize: '0.85rem', display: 'flex', alignItems: 'center', gap: '4px' }}>
                         <DollarSign size={15} /> Baixa Parcial
                       </button>
+                      <button 
+                        onClick={() => handleOpenReceiptModal(sale, false)} 
+                        title="Gerar recibo parcial em imagem com débito restante" 
+                        style={{ background: '#059669', color: '#fff', border: 'none', padding: '8px 12px', borderRadius: '8px', cursor: 'pointer', fontWeight: 'bold', fontSize: '0.85rem', display: 'flex', alignItems: 'center', gap: '4px' }}
+                      >
+                        <ImageIcon size={15} /> Recibo Parcial
+                      </button>
                     </>
                   ) : (
-                    <button 
-                      onClick={() => handleSendConfirmedReceipt(sale)} 
-                      title="Enviar comprovante de venda confirmada via WhatsApp" 
-                      style={{ background: '#25D366', color: '#fff', border: 'none', padding: '8px 12px', borderRadius: '8px', cursor: 'pointer', fontWeight: 'bold', fontSize: '0.85rem', display: 'flex', alignItems: 'center', gap: '5px' }}
-                    >
-                      <MessageCircle size={15} /> Enviar Comprovante
-                    </button>
+                    <>
+                      <button 
+                        onClick={() => handleOpenReceiptModal(sale, true)} 
+                        title="Gerar cupom de desconto & recibo em imagem" 
+                        style={{ background: '#059669', color: '#fff', border: 'none', padding: '8px 12px', borderRadius: '8px', cursor: 'pointer', fontWeight: 'bold', fontSize: '0.85rem', display: 'flex', alignItems: 'center', gap: '4px' }}
+                      >
+                        <ImageIcon size={15} /> 🎁 Cupom & Recibo
+                      </button>
+                    </>
                   )}
-                  <button 
-                    onClick={() => handleOpenReceiptModal(sale)} 
-                    title="Gerar cupom/recibo de venda em imagem" 
-                    style={{ background: '#059669', color: '#fff', border: 'none', padding: '8px 12px', borderRadius: '8px', cursor: 'pointer', fontWeight: 'bold', fontSize: '0.85rem', display: 'flex', alignItems: 'center', gap: '4px' }}
-                  >
-                    <ImageIcon size={15} /> Cupom / Recibo
-                  </button>
                   <button onClick={() => startEditing(sale)} title="Editar pedido completo" style={{ background: '#e3f2fd', color: '#1565c0', border: 'none', padding: '8px 12px', borderRadius: '8px', cursor: 'pointer', fontWeight: 'bold', fontSize: '0.85rem', display: 'flex', alignItems: 'center', gap: '4px' }}>
                     <Edit2 size={16} /> Alterar Pedido
                   </button>
@@ -555,42 +581,48 @@ export function AdminSales({ sales, productsList = [], onUpdate }: Props) {
             </p>
 
             {/* Checkbox Cupom de Desconto */}
-            <div style={{ background: '#fffcf5', border: '1px solid #fde68a', padding: '12px 15px', borderRadius: '10px', marginBottom: '15px' }}>
-              <label style={{ display: 'flex', alignItems: 'center', gap: '10px', fontWeight: 'bold', color: '#b45309', cursor: 'pointer', fontSize: '0.9rem' }}>
-                <input 
-                  type="checkbox" 
-                  checked={includeCoupon} 
-                  onChange={e => setIncludeCoupon(e.target.checked)} 
-                  style={{ width: '18px', height: '18px', cursor: 'pointer' }}
-                />
-                🎁 Incluir Cupom de Desconto Especial no Recibo?
-              </label>
+            {allowCouponModal ? (
+              <div style={{ background: '#fffcf5', border: '1px solid #fde68a', padding: '12px 15px', borderRadius: '10px', marginBottom: '15px' }}>
+                <label style={{ display: 'flex', alignItems: 'center', gap: '10px', fontWeight: 'bold', color: '#b45309', cursor: 'pointer', fontSize: '0.9rem' }}>
+                  <input 
+                    type="checkbox" 
+                    checked={includeCoupon} 
+                    onChange={e => setIncludeCoupon(e.target.checked)} 
+                    style={{ width: '18px', height: '18px', cursor: 'pointer' }}
+                  />
+                  🎁 Incluir Cupom de Desconto Especial no Recibo?
+                </label>
 
-              {includeCoupon && (
-                <div style={{ marginTop: '12px', display: 'flex', flexDirection: 'column', gap: '8px' }}>
-                  <div>
-                    <label style={{ fontSize: '0.8rem', fontWeight: 'bold', color: '#555' }}>Código do Cupom:</label>
-                    <input 
-                      type="text" 
-                      placeholder="Ex: MAYBELEZA10 ou DESCONTO10" 
-                      value={couponCodeInput} 
-                      onChange={e => setCouponCodeInput(e.target.value.toUpperCase())} 
-                      style={inputStyle} 
-                    />
+                {includeCoupon && (
+                  <div style={{ marginTop: '12px', display: 'flex', flexDirection: 'column', gap: '8px' }}>
+                    <div>
+                      <label style={{ fontSize: '0.8rem', fontWeight: 'bold', color: '#555' }}>Código do Cupom:</label>
+                      <input 
+                        type="text" 
+                        placeholder="Ex: MAYBELEZA10 ou DESCONTO10" 
+                        value={couponCodeInput} 
+                        onChange={e => setCouponCodeInput(e.target.value.toUpperCase())} 
+                        style={inputStyle} 
+                      />
+                    </div>
+                    <div>
+                      <label style={{ fontSize: '0.8rem', fontWeight: 'bold', color: '#555' }}>Descrição do Desconto:</label>
+                      <input 
+                        type="text" 
+                        placeholder="Ex: Ganhe 10% de desconto na sua próxima compra!" 
+                        value={couponTextInput} 
+                        onChange={e => setCouponTextInput(e.target.value)} 
+                        style={inputStyle} 
+                      />
+                    </div>
                   </div>
-                  <div>
-                    <label style={{ fontSize: '0.8rem', fontWeight: 'bold', color: '#555' }}>Descrição do Desconto:</label>
-                    <input 
-                      type="text" 
-                      placeholder="Ex: Ganhe 10% de desconto na sua próxima compra!" 
-                      value={couponTextInput} 
-                      onChange={e => setCouponTextInput(e.target.value)} 
-                      style={inputStyle} 
-                    />
-                  </div>
-                </div>
-              )}
-            </div>
+                )}
+              </div>
+            ) : (
+              <div style={{ background: '#eff6ff', border: '1px solid #bfdbfe', padding: '12px 15px', borderRadius: '10px', marginBottom: '15px', color: '#1e40af', fontSize: '0.85rem' }}>
+                📌 <strong>Recibo Parcial / Extrato:</strong> O cupom de desconto promocional é liberado exclusivamente em vendas com <strong>Baixa Total (100% quitadas)</strong>. Este recibo discrimina o valor recebido e o saldo devedor restante no crediário.
+              </div>
+            )}
 
             {/* Action Buttons */}
             <div style={{ display: 'flex', flexDirection: 'column', gap: '10px' }}>
