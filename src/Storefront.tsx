@@ -35,6 +35,7 @@ export default function Storefront() {
   const [showPromosOnly, setShowPromosOnly] = useState(false);
   const [sortOrder, setSortOrder] = useState<'destaques' | 'nome_asc' | 'nome_desc' | 'preco_asc' | 'preco_desc'>('destaques');
   const [searchTerm, setSearchTerm] = useState('');
+  const [selectedProductDetails, setSelectedProductDetails] = useState<Product | null>(null);
 
   useEffect(() => {
     // 1. Fetch Products
@@ -276,7 +277,11 @@ export default function Storefront() {
 
   const renderProductCard = (product: Product) => (
     <div key={product.id} className="product-card">
-      <div className="product-image-container" style={{ position: 'relative' }}>
+      <div 
+        className="product-image-container" 
+        style={{ position: 'relative', cursor: 'pointer' }}
+        onClick={() => setSelectedProductDetails(product)}
+      >
         {product.isFeatured && (
           <div style={{ position: 'absolute', top: '10px', right: '10px', background: '#f59e0b', color: 'white', fontSize: '0.75rem', fontWeight: 'bold', padding: '4px 8px', borderRadius: '12px', zIndex: 2, boxShadow: '0 2px 6px rgba(0,0,0,0.2)' }}>
             ⭐ DESTAQUE
@@ -301,7 +306,7 @@ export default function Storefront() {
         />
       </div>
       <div className="product-info">
-        <h3>{product.name}</h3>
+        <h3 onClick={() => setSelectedProductDetails(product)} style={{ cursor: 'pointer' }}>{product.name}</h3>
         {product.isPromotion ? (
           <p className="price" style={{ display: 'flex', alignItems: 'center', gap: '10px', justifyContent: 'center' }}>
             <span style={{ textDecoration: 'line-through', color: '#999', fontSize: '1rem', fontWeight: 'normal' }}>R$ {product.price.toFixed(2)}</span>
@@ -310,15 +315,25 @@ export default function Storefront() {
         ) : (
           <p className="price">R$ {product.price.toFixed(2)}</p>
         )}
-        {product.stock !== undefined && product.stock <= 0 ? (
-          <button className="add-to-cart-btn" style={{ background: '#999', cursor: 'not-allowed' }} disabled>
-            Esgotado
+        
+        <div style={{ display: 'flex', gap: '6px', width: '100%', marginTop: 'auto' }}>
+          <button 
+            style={{ flex: 1, background: '#f5f5f5', color: '#444', border: '1px solid #ddd', padding: '8px', borderRadius: '8px', cursor: 'pointer', fontSize: '0.8rem', fontWeight: 'bold' }}
+            onClick={() => setSelectedProductDetails(product)}
+          >
+            🔍 Detalhes
           </button>
-        ) : (
-          <button className="add-to-cart-btn" onClick={() => addToCart(product)}>
-            Adicionar
-          </button>
-        )}
+          
+          {product.stock !== undefined && product.stock <= 0 ? (
+            <button className="add-to-cart-btn" style={{ flex: 1, background: '#999', cursor: 'not-allowed' }} disabled>
+              Esgotado
+            </button>
+          ) : (
+            <button className="add-to-cart-btn" style={{ flex: 1 }} onClick={() => addToCart(product)}>
+              Adicionar
+            </button>
+          )}
+        </div>
       </div>
     </div>
   );
@@ -629,6 +644,89 @@ export default function Storefront() {
                 </div>
               </div>
             )}
+          </div>
+        </div>
+      )}
+
+      {/* MODAL DE DETALHES DO PRODUTO (COPYWRITING & VENDAS) */}
+      {selectedProductDetails && (
+        <div style={{ position: 'fixed', top: 0, left: 0, right: 0, bottom: 0, background: 'rgba(0,0,0,0.65)', zIndex: 9999, display: 'flex', alignItems: 'center', justifyContent: 'center', padding: '15px' }} onClick={() => setSelectedProductDetails(null)}>
+          <div style={{ background: '#fff', borderRadius: '20px', maxWidth: '520px', width: '100%', maxHeight: '90vh', overflowY: 'auto', padding: '25px', position: 'relative', boxShadow: '0 15px 35px rgba(0,0,0,0.3)' }} onClick={e => e.stopPropagation()}>
+            <button 
+              onClick={() => setSelectedProductDetails(null)} 
+              style={{ position: 'absolute', top: '15px', right: '15px', border: 'none', background: '#f5f5f5', borderRadius: '50%', width: '36px', height: '36px', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '1.2rem', fontWeight: 'bold', color: '#555', zIndex: 10 }}
+            >
+              ✕
+            </button>
+
+            {/* Imagem do Produto */}
+            <div style={{ width: '100%', height: '240px', borderRadius: '15px', overflow: 'hidden', position: 'relative', background: '#f9f9f9', marginBottom: '20px' }}>
+              {selectedProductDetails.isFeatured && (
+                <div style={{ position: 'absolute', top: '12px', right: '12px', background: '#f59e0b', color: 'white', fontSize: '0.75rem', fontWeight: 'bold', padding: '4px 10px', borderRadius: '12px', zIndex: 2, boxShadow: '0 2px 6px rgba(0,0,0,0.2)' }}>
+                  ⭐ DESTAQUE DA LOJA
+                </div>
+              )}
+              {selectedProductDetails.isPromotion && (
+                <div style={{ position: 'absolute', top: '12px', left: '12px', background: '#e60000', color: 'white', fontSize: '0.75rem', fontWeight: 'bold', padding: '4px 10px', borderRadius: '12px', zIndex: 2 }}>
+                  ⚡ OFERTA RELÂMPAGO
+                </div>
+              )}
+              <img 
+                src={selectedProductDetails.image || "https://images.unsplash.com/photo-1522337360788-8b13dee7a37e?w=400&q=80"} 
+                alt={selectedProductDetails.name}
+                style={{ width: '100%', height: '100%', objectFit: 'contain' }}
+              />
+            </div>
+
+            {/* Título & Preço */}
+            <h2 style={{ margin: '0 0 10px 0', fontSize: '1.4rem', color: '#333' }}>{selectedProductDetails.name}</h2>
+            <div style={{ display: 'flex', alignItems: 'baseline', gap: '12px', marginBottom: '20px' }}>
+              {selectedProductDetails.isPromotion ? (
+                <>
+                  <span style={{ textDecoration: 'line-through', color: '#999', fontSize: '1.1rem' }}>R$ {selectedProductDetails.price.toFixed(2)}</span>
+                  <span style={{ color: '#e60000', fontSize: '1.8rem', fontWeight: 'bold' }}>R$ {selectedProductDetails.promotionalPrice?.toFixed(2)}</span>
+                </>
+              ) : (
+                <span style={{ color: 'var(--color-gold-dark)', fontSize: '1.8rem', fontWeight: 'bold' }}>R$ {selectedProductDetails.price.toFixed(2)}</span>
+              )}
+            </div>
+
+            {/* Descrição & Copywriting */}
+            <div style={{ background: '#fffcf5', border: '1px solid #fde68a', padding: '16px', borderRadius: '12px', marginBottom: '20px' }}>
+              <h4 style={{ margin: '0 0 10px 0', color: '#b45309', display: 'flex', alignItems: 'center', gap: '6px', fontSize: '1rem' }}>
+                ✨ Sobre este Cosmético:
+              </h4>
+              <p style={{ margin: 0, fontSize: '0.95rem', color: '#444', lineHeight: '1.6', whiteSpace: 'pre-line' }}>
+                {selectedProductDetails.description || `🌸 Cuidado intensivo e fórmula enriquecida para realçar a sua beleza natural. Toque aveludado e sensação imediata de maciez e hidratação. Ideal para uso diário em sua rotina de autocuidado!`}
+              </p>
+            </div>
+
+            {/* Botões de Ação */}
+            <div style={{ display: 'flex', flexDirection: 'column', gap: '10px' }}>
+              {selectedProductDetails.stock !== undefined && selectedProductDetails.stock <= 0 ? (
+                <button style={{ width: '100%', padding: '14px', background: '#999', color: '#fff', border: 'none', borderRadius: '12px', fontWeight: 'bold', fontSize: '1rem', cursor: 'not-allowed' }} disabled>
+                  Produto Esgotado
+                </button>
+              ) : (
+                <>
+                  <button 
+                    onClick={() => { addToCart(selectedProductDetails); setSelectedProductDetails(null); }}
+                    style={{ width: '100%', padding: '14px', background: 'var(--color-gold)', color: '#fff', border: 'none', borderRadius: '12px', fontWeight: 'bold', fontSize: '1rem', cursor: 'pointer', boxShadow: '0 4px 12px rgba(212,175,55,0.3)', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '8px' }}
+                  >
+                    🛒 Adicionar ao Carrinho
+                  </button>
+                  <button 
+                    onClick={() => {
+                      const msg = `Olá May! Gostaria de comprar o produto *${selectedProductDetails.name}* (R$ ${(selectedProductDetails.isPromotion && selectedProductDetails.promotionalPrice ? selectedProductDetails.promotionalPrice : selectedProductDetails.price).toFixed(2)}). Tem disponível?`;
+                      window.open(`https://wa.me/${whatsappNumber}?text=${encodeURIComponent(msg)}`, '_blank');
+                    }}
+                    style={{ width: '100%', padding: '14px', background: '#25D366', color: '#fff', border: 'none', borderRadius: '12px', fontWeight: 'bold', fontSize: '1rem', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '8px' }}
+                  >
+                    📲 Comprar Direto no WhatsApp
+                  </button>
+                </>
+              )}
+            </div>
           </div>
         </div>
       )}

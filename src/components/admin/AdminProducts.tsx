@@ -20,6 +20,7 @@ export function AdminProducts({ productsList, onUpdate, migrateLocalProducts }: 
   const [newCost, setNewCost] = useState('0');
   const [newStock, setNewStock] = useState('10');
   const [newBarcode, setNewBarcode] = useState('');
+  const [newDescription, setNewDescription] = useState('');
   const [isPromotion, setIsPromotion] = useState(false);
   const [isFeatured, setIsFeatured] = useState(false);
   const [promotionalPrice, setPromotionalPrice] = useState('');
@@ -27,8 +28,25 @@ export function AdminProducts({ productsList, onUpdate, migrateLocalProducts }: 
   const [newImage, setNewImage] = useState<File | null>(null);
   const [uploading, setUploading] = useState(false);
 
+  const generateAutoCopy = () => {
+    const name = newName.trim() || 'este produto';
+    const autoCopy = `🌸 Por que você vai amar o ${name}:
+Proporciona cuidado intensivo, toque aveludado e perfumação prolongada. Desenvolvido com ingredientes selecionados para realçar a sua beleza natural todos os dias.
+
+✨ Principais Benefícios:
+• Hidratação profunda e nutrição imediata
+• Fórmula leve com absorção rápida
+• Fragrância marcante e envolvente
+• Ideal para a sua rotina de autocuidado
+
+💡 Modo de Uso:
+Aplique uma quantidade generosa sobre a área desejada, massageando suavemente com movimentos circulares até a completa absorção. Use diariamente.`;
+    
+    setNewDescription(autoCopy);
+  };
+
   const resetForm = () => {
-    setNewName(''); setNewPrice(''); setNewCost('0'); setNewStock('10'); setNewBarcode(''); setIsPromotion(false); setIsFeatured(false); setPromotionalPrice(''); setPromoPaymentMethod('all'); setNewImage(null); setEditingId(null); setIsAdding(false);
+    setNewName(''); setNewPrice(''); setNewCost('0'); setNewStock('10'); setNewBarcode(''); setNewDescription(''); setIsPromotion(false); setIsFeatured(false); setPromotionalPrice(''); setPromoPaymentMethod('all'); setNewImage(null); setEditingId(null); setIsAdding(false);
   };
 
   const handleEdit = (product: any) => {
@@ -38,6 +56,7 @@ export function AdminProducts({ productsList, onUpdate, migrateLocalProducts }: 
     setNewCost(product.cost ? product.cost.toString() : '0');
     setNewStock(product.stock !== undefined ? product.stock.toString() : '0');
     setNewBarcode(product.barcode || '');
+    setNewDescription(product.description || '');
     setIsPromotion(product.isPromotion || false);
     setIsFeatured(product.isFeatured || false);
     setPromotionalPrice(product.promotionalPrice ? product.promotionalPrice.toString() : '');
@@ -91,6 +110,7 @@ export function AdminProducts({ productsList, onUpdate, migrateLocalProducts }: 
         name: newName,
         price: parseFloat(newPrice),
         cost: parseFloat(newCost) || 0,
+        description: newDescription,
         isPromotion: isPromotion,
         isFeatured: isFeatured,
         promotionalPrice: isPromotion ? parseFloat(promotionalPrice) : null,
@@ -143,6 +163,28 @@ export function AdminProducts({ productsList, onUpdate, migrateLocalProducts }: 
               <label style={{ fontWeight: 'bold' }}>Nome do Produto:</label>
               <input type="text" value={newName} onChange={e => setNewName(e.target.value)} required style={inputStyle} />
             </div>
+
+            <div>
+              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '4px' }}>
+                <label style={{ fontWeight: 'bold', color: 'var(--color-gold-dark)' }}>📝 Descrição & Copywriting do Produto:</label>
+                <button 
+                  type="button" 
+                  onClick={generateAutoCopy}
+                  title="Gerar texto de venda persuasivo automaticamente para este produto"
+                  style={{ background: '#fef3c7', color: '#b45309', border: '1px solid #fde68a', padding: '5px 10px', borderRadius: '6px', fontSize: '0.8rem', fontWeight: 'bold', cursor: 'pointer', display: 'flex', alignItems: 'center', gap: '4px' }}
+                >
+                  ✨ Gerar Copywriting Automático
+                </button>
+              </div>
+              <textarea 
+                rows={5} 
+                value={newDescription} 
+                onChange={e => setNewDescription(e.target.value)} 
+                placeholder="Descreva os benefícios, modo de uso e diferenciais deste cosmético..." 
+                style={{ ...inputStyle, fontFamily: 'inherit', resize: 'vertical' }} 
+              />
+            </div>
+
             <div style={{ display: 'flex', gap: '15px' }}>
               <div style={{ flex: 1 }}>
                 <label style={{ fontWeight: 'bold' }}>Custo (R$):</label>
