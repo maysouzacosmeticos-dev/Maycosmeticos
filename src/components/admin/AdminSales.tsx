@@ -1,8 +1,10 @@
 import { useState } from 'react';
-import { Package, CheckCircle, Trash2, Edit2, DollarSign, Plus, MessageCircle } from 'lucide-react';
+import { Package, CheckCircle, Trash2, Edit2, DollarSign, Plus, MessageCircle, Image as ImageIcon, X } from 'lucide-react';
 import { doc, updateDoc, increment, deleteDoc } from 'firebase/firestore';
 import { db } from '../../firebase';
 import { sendDigitalPaymentReceipt } from '../../utils/generatePaymentReceipt';
+import { Receipt } from '../Receipt';
+import html2canvas from 'html2canvas';
 
 interface Props {
   sales: any[];
@@ -22,6 +24,12 @@ export function AdminSales({ sales, productsList = [], onUpdate }: Props) {
   const [editedMethod, setEditedMethod] = useState('');
   const [selectedProductToAdd, setSelectedProductToAdd] = useState('');
 
+  // Modal de Recibo Visual / Cupom
+  const [receiptModalSale, setReceiptModalSale] = useState<any | null>(null);
+  const [includeCoupon, setIncludeCoupon] = useState(false);
+  const [couponCodeInput, setCouponCodeInput] = useState('');
+  const [couponTextInput, setCouponTextInput] = useState('');
+
   const filteredSales = sales.filter(s => {
     let matchesStatus = true;
     if (filter === 'pendente') matchesStatus = s.status === 'pendente';
@@ -37,6 +45,88 @@ export function AdminSales({ sales, productsList = [], onUpdate }: Props) {
   });
 
   const pendingCount = sales.filter(s => s.status === 'pendente' || s.status === 'parcial' || s.method === 'A Prazo').length;
+
+  const handleOpenReceiptModal = (sale: any) => {
+    setReceiptModalSale(sale);
+    setIncludeCoupon(false);
+    setCouponCodeInput('');
+    setCouponTextInput('');
+  };
+
+  const generateReceiptCanvas = async () => {
+    const elem = document.getElementById('receipt-container');
+    if (!elem) return null;
+    const originalLeft = elem.style.left;
+    elem.style.left = '0px';
+    elem.style.top = '0px';
+    elem.style.zIndex = '99999';
+
+    try {
+      const canvas = await html2canvas(elem, {
+        scale: 2,
+        useCORS: true,
+        backgroundColor: '#ffffff'
+      });
+      elem.style.left = originalLeft;
+      return canvas;
+    } catch (err) {
+      elem.style.left = originalLeft;
+      console.error("Erro ao renderizar imagem do cupom:", err);
+      return null;
+    }
+  };
+
+  const handleDownloadReceiptImage = async () => {
+    if (!receiptModalSale) return;
+    const canvas = await generateReceiptCanvas();
+    if (!canvas) {
+      alert("Erro ao gerar imagem do cupom.");
+      return;
+    }
+    const customerName = receiptModalSale.customerName || 'Cliente';
+    const link = document.createElement('a');
+    link.download = `Cupom_MayCosmeticos_${customerName.replace(/\s+/g, '_')}.png`;
+    link.href = canvas.toDataURL('image/png');
+    link.click();
+  };
+
+  const handleShareReceiptImage = async () => {
+    if (!receiptModalSale) return;
+    const canvas = await generateReceiptCanvas();
+    if (!canvas) return;
+
+    const customerName = receiptModalSale.customerName || 'Cliente';
+    const customerPhone = receiptModalSale.customerPhone || '';
+
+    canvas.toBlob(async (blob) => {
+      if (!blob) return;
+      const file = new File([blob], `Cupom_MayCosmeticos_${customerName.replace(/\s+/g, '_')}.png`, { type: 'image/png' });
+
+      if (navigator.canShare && navigator.canShare({ files: [file] })) {
+        try {
+          await navigator.share({
+            title: 'Cupom de Venda - May Cosméticos',
+            text: `Olá ${customerName}, aqui está o seu cupom oficial de compra da May Cosméticos! 🌸`,
+            files: [file]
+          });
+        } catch (error) {}
+      } else {
+        const link = document.createElement('a');
+        link.download = file.name;
+        link.href = canvas.toDataURL('image/png');
+        link.click();
+
+        const cleanPhone = customerPhone.replace(/\D/g, '');
+        if (cleanPhone) {
+          setTimeout(() => {
+            window.open(`https://wa.me/${cleanPhone}?text=${encodeURIComponent(`Olá ${customerName}, a imagem do seu cupom de compra da May Cosméticos foi gerada! 🌸`)}`, '_blank');
+          }, 800);
+        } else {
+          alert("Imagem do cupom baixada!");
+        }
+      }
+    });
+  };
 
   const handleSendConfirmedReceipt = (sale: any) => {
     const customerName = sale.customerName || 'Cliente';
@@ -334,6 +424,13 @@ export function AdminSales({ sales, productsList = [], onUpdate }: Props) {
                       <MessageCircle size={15} /> Enviar Comprovante
                     </button>
                   )}
+                  <button 
+                    onClick={() => handleOpenReceiptModal(sale)} 
+                    title="Gerar cupom/recibo de venda em imagem" 
+                    style={{ background: '#059669', color: '#fff', border: 'none', padding: '8px 12px', borderRadius: '8px', cursor: 'pointer', fontWeight: 'bold', fontSize: '0.85rem', display: 'flex', alignItems: 'center', gap: '4px' }}
+                  >
+                    <ImageIcon size={15} /> Cupom / Recibo
+                  </button>
                   <button onClick={() => startEditing(sale)} title="Editar pedido completo" style={{ background: '#e3f2fd', color: '#1565c0', border: 'none', padding: '8px 12px', borderRadius: '8px', cursor: 'pointer', fontWeight: 'bold', fontSize: '0.85rem', display: 'flex', alignItems: 'center', gap: '4px' }}>
                     <Edit2 size={16} /> Alterar Pedido
                   </button>
@@ -441,6 +538,101 @@ export function AdminSales({ sales, productsList = [], onUpdate }: Props) {
           );
         })}
       </div>
+
+      {/* Modal de Gerar Cupom / Recibo Imagem */}
+      {receiptModalSale && (
+        <div style={{ position: 'fixed', top: 0, left: 0, right: 0, bottom: 0, background: 'rgba(0,0,0,0.6)', zIndex: 1000, display: 'flex', alignItems: 'center', justifyContent: 'center', padding: '20px' }}>
+          <div style={{ background: '#fff', padding: '25px', borderRadius: '16px', maxWidth: '480px', width: '100%', boxShadow: '0 10px 30px rgba(0,0,0,0.3)', position: 'relative', maxHeight: '90vh', overflowY: 'auto' }}>
+            <button onClick={() => setReceiptModalSale(null)} style={{ position: 'absolute', top: '15px', right: '15px', border: 'none', background: '#f5f5f5', borderRadius: '50%', width: '32px', height: '32px', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+              <X size={18} />
+            </button>
+
+            <h3 style={{ margin: '0 0 5px 0', color: 'var(--color-gold-dark)', display: 'flex', alignItems: 'center', gap: '8px' }}>
+              🧾 Gerar Cupom / Recibo Digital
+            </h3>
+            <p style={{ margin: '0 0 15px 0', fontSize: '0.85rem', color: '#666' }}>
+              Cliente: <strong>{receiptModalSale.customerName || 'Consumidor Final'}</strong> | Total: <strong>R$ {receiptModalSale.total.toFixed(2)}</strong>
+            </p>
+
+            {/* Checkbox Cupom de Desconto */}
+            <div style={{ background: '#fffcf5', border: '1px solid #fde68a', padding: '12px 15px', borderRadius: '10px', marginBottom: '15px' }}>
+              <label style={{ display: 'flex', alignItems: 'center', gap: '10px', fontWeight: 'bold', color: '#b45309', cursor: 'pointer', fontSize: '0.9rem' }}>
+                <input 
+                  type="checkbox" 
+                  checked={includeCoupon} 
+                  onChange={e => setIncludeCoupon(e.target.checked)} 
+                  style={{ width: '18px', height: '18px', cursor: 'pointer' }}
+                />
+                🎁 Incluir Cupom de Desconto Especial no Recibo?
+              </label>
+
+              {includeCoupon && (
+                <div style={{ marginTop: '12px', display: 'flex', flexDirection: 'column', gap: '8px' }}>
+                  <div>
+                    <label style={{ fontSize: '0.8rem', fontWeight: 'bold', color: '#555' }}>Código do Cupom:</label>
+                    <input 
+                      type="text" 
+                      placeholder="Ex: MAYBELEZA10 ou DESCONTO10" 
+                      value={couponCodeInput} 
+                      onChange={e => setCouponCodeInput(e.target.value.toUpperCase())} 
+                      style={inputStyle} 
+                    />
+                  </div>
+                  <div>
+                    <label style={{ fontSize: '0.8rem', fontWeight: 'bold', color: '#555' }}>Descrição do Desconto:</label>
+                    <input 
+                      type="text" 
+                      placeholder="Ex: Ganhe 10% de desconto na sua próxima compra!" 
+                      value={couponTextInput} 
+                      onChange={e => setCouponTextInput(e.target.value)} 
+                      style={inputStyle} 
+                    />
+                  </div>
+                </div>
+              )}
+            </div>
+
+            {/* Action Buttons */}
+            <div style={{ display: 'flex', flexDirection: 'column', gap: '10px' }}>
+              <button 
+                onClick={handleShareReceiptImage}
+                style={{ width: '100%', padding: '14px', background: '#25D366', color: '#fff', border: 'none', borderRadius: '10px', fontWeight: 'bold', cursor: 'pointer', fontSize: '0.95rem', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '8px' }}
+              >
+                <MessageCircle size={18} /> Enviar Imagem do Cupom no WhatsApp
+              </button>
+
+              <button 
+                onClick={handleDownloadReceiptImage}
+                style={{ width: '100%', padding: '14px', background: '#1565c0', color: '#fff', border: 'none', borderRadius: '10px', fontWeight: 'bold', cursor: 'pointer', fontSize: '0.95rem', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '8px' }}
+              >
+                <ImageIcon size={18} /> Baixar Imagem do Cupom (PNG)
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Elemento oculto do Recibo para html2canvas */}
+      {receiptModalSale && (
+        <Receipt 
+          customerName={receiptModalSale.customerName || 'Consumidor Final'}
+          customerPhone={receiptModalSale.customerPhone}
+          items={(receiptModalSale.items || []).map((it: any) => ({
+            id: it.id || '1',
+            description: it.name,
+            quantity: it.quantity,
+            unitPrice: it.price,
+            totalPrice: it.quantity * it.price
+          }))}
+          date={receiptModalSale.date ? new Date(receiptModalSale.date).toLocaleString('pt-BR') : new Date().toLocaleString('pt-BR')}
+          paymentMethod={receiptModalSale.method || 'Pix'}
+          totalAmount={receiptModalSale.total}
+          partialPayment={receiptModalSale.amountPaid !== undefined ? receiptModalSale.amountPaid.toString() : (receiptModalSale.status === 'pago' ? receiptModalSale.total.toString() : '0')}
+          couponCode={includeCoupon ? couponCodeInput : undefined}
+          couponText={includeCoupon ? couponTextInput : undefined}
+          saleNumber={receiptModalSale.id ? receiptModalSale.id.substring(0, 6) : undefined}
+        />
+      )}
     </div>
   );
 }
