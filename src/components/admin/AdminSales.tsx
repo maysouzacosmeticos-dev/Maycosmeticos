@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { Package, CheckCircle, Trash2, Edit2, DollarSign, Plus } from 'lucide-react';
+import { Package, CheckCircle, Trash2, Edit2, DollarSign, Plus, MessageCircle } from 'lucide-react';
 import { doc, updateDoc, increment, deleteDoc } from 'firebase/firestore';
 import { db } from '../../firebase';
 import { sendDigitalPaymentReceipt } from '../../utils/generatePaymentReceipt';
@@ -37,6 +37,33 @@ export function AdminSales({ sales, productsList = [], onUpdate }: Props) {
   });
 
   const pendingCount = sales.filter(s => s.status === 'pendente' || s.status === 'parcial' || s.method === 'A Prazo').length;
+
+  const handleSendConfirmedReceipt = (sale: any) => {
+    const customerName = sale.customerName || 'Cliente';
+    const customerPhone = sale.customerPhone || '';
+    const dateStr = sale.date ? new Date(sale.date).toLocaleString('pt-BR') : new Date().toLocaleString('pt-BR');
+    const itemsText = (sale.items || []).map((item: any) => ` • ${item.quantity}x ${item.name} (R$ ${(item.quantity * item.price).toFixed(2)})`).join('\n');
+    
+    let msg = `🧾 *COMPROVANTE DE VENDA CONFIRMADA*\n`;
+    msg += `*May Cosméticos - Beleza & Bem-Estar*\n\n`;
+    msg += `👤 *Cliente:* ${customerName}\n`;
+    msg += `📅 *Data da Venda:* ${dateStr}\n`;
+    msg += `💳 *Forma de Pagamento:* ${sale.method || 'Pix/Dinheiro'}\n`;
+    msg += `-----------------------------------\n`;
+    msg += `🛍️ *Itens do Pedido:*\n${itemsText}\n`;
+    msg += `-----------------------------------\n`;
+    msg += `💰 *TOTAL PAGO:* R$ ${sale.total.toFixed(2)}\n`;
+    msg += `✅ *Status:* Venda Confirmada e Quitada!\n\n`;
+    msg += `*Agradecemos imensamente a sua preferência!* 🌸💖`;
+
+    const cleanPhone = customerPhone.replace(/\D/g, '');
+    if (cleanPhone) {
+      window.open(`https://wa.me/${cleanPhone}?text=${encodeURIComponent(msg)}`, '_blank');
+    } else {
+      navigator.clipboard.writeText(msg).catch(() => {});
+      alert(`Comprovante formatado!\n\n${msg}\n\n(Copiado para a área de transferência).`);
+    }
+  };
 
   const handleBaixaTotal = async (sale: any) => {
     const amountPaidSoFar = sale.amountPaid !== undefined ? sale.amountPaid : (sale.status === 'pago' ? sale.total : 0);
@@ -299,9 +326,13 @@ export function AdminSales({ sales, productsList = [], onUpdate }: Props) {
                       </button>
                     </>
                   ) : (
-                    <span style={{ display: 'flex', alignItems: 'center', gap: '5px', color: '#4CAF50', fontWeight: 'bold', padding: '8px 12px' }}>
-                      <CheckCircle size={18} /> Concluído
-                    </span>
+                    <button 
+                      onClick={() => handleSendConfirmedReceipt(sale)} 
+                      title="Enviar comprovante de venda confirmada via WhatsApp" 
+                      style={{ background: '#25D366', color: '#fff', border: 'none', padding: '8px 12px', borderRadius: '8px', cursor: 'pointer', fontWeight: 'bold', fontSize: '0.85rem', display: 'flex', alignItems: 'center', gap: '5px' }}
+                    >
+                      <MessageCircle size={15} /> Enviar Comprovante
+                    </button>
                   )}
                   <button onClick={() => startEditing(sale)} title="Editar pedido completo" style={{ background: '#e3f2fd', color: '#1565c0', border: 'none', padding: '8px 12px', borderRadius: '8px', cursor: 'pointer', fontWeight: 'bold', fontSize: '0.85rem', display: 'flex', alignItems: 'center', gap: '4px' }}>
                     <Edit2 size={16} /> Alterar Pedido
