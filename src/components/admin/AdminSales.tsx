@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { Package, CheckCircle, Trash2, Edit2, DollarSign, Plus, MessageCircle, Image as ImageIcon, X } from 'lucide-react';
+import { Package, CheckCircle, Trash2, Edit2, DollarSign, Plus, MessageCircle, Image as ImageIcon, X, RotateCcw } from 'lucide-react';
 import { doc, updateDoc, increment, deleteDoc } from 'firebase/firestore';
 import { db } from '../../firebase';
 import { sendDigitalPaymentReceipt } from '../../utils/generatePaymentReceipt';
@@ -63,6 +63,31 @@ export function AdminSales({ sales, productsList = [], onUpdate }: Props) {
         handleSendConfirmedReceipt(sale);
       } catch (e) {
         alert("Erro ao confirmar pedido.");
+      }
+    }
+  };
+
+  const handleRevertToCrediario = async (sale: any) => {
+    if (window.confirm(`Deseja REVERTER a baixa de ${sale.customerName || 'Cliente'} e retornar a venda para A Prazo / Crediário?`)) {
+      try {
+        const oldAmountPaid = sale.amountPaid !== undefined ? sale.amountPaid : sale.total;
+        await updateDoc(doc(db, "sales", sale.id), {
+          status: 'pendente',
+          amountPaid: 0,
+          method: 'A Prazo'
+        });
+
+        if (sale.customerId) {
+          await updateDoc(doc(db, "customers", sale.customerId), {
+            totalDivida: increment(sale.total),
+            totalGasto: increment(-oldAmountPaid)
+          });
+        }
+
+        onUpdate();
+        alert(`Venda de ${sale.customerName || 'Cliente'} revertida para A Prazo (Crediário) com sucesso!`);
+      } catch (e) {
+        alert("Erro ao reverter baixa.");
       }
     }
   };
@@ -448,6 +473,13 @@ export function AdminSales({ sales, productsList = [], onUpdate }: Props) {
                     </>
                   ) : (
                     <>
+                      <button 
+                        onClick={() => handleRevertToCrediario(sale)} 
+                        title="Reverter baixa total e retornar venda para A Prazo (Crediário)" 
+                        style={{ background: '#fff3e0', color: '#e65100', border: '1px solid #ffe0b2', padding: '8px 12px', borderRadius: '8px', cursor: 'pointer', fontWeight: 'bold', fontSize: '0.85rem', display: 'flex', alignItems: 'center', gap: '4px' }}
+                      >
+                        <RotateCcw size={15} /> Reverter Baixa
+                      </button>
                       <button 
                         onClick={() => handleOpenReceiptModal(sale, true)} 
                         title="Gerar cupom de desconto & recibo em imagem" 
